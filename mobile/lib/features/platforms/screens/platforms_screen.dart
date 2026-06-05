@@ -40,9 +40,10 @@ class _PlatformTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isFollowing = ref.watch(
-      followedPlatformsProvider.select((s) => s.contains(platform.id)),
-    );
+    // Use .value so the tile stays responsive while the async state loads.
+    final followed = ref.watch(followedPlatformsProvider).value;
+    final isFollowing = followed?.contains(platform.id) ?? false;
+    final isLoading = followed == null;
 
     return ListTile(
       title: Text(platform.name),
@@ -52,13 +53,22 @@ class _PlatformTile extends ConsumerWidget {
         children: [
           _StatusChip(platform: platform),
           const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => ref.read(followedPlatformsProvider.notifier).toggle(platform.id),
-            child: Icon(
-              isFollowing ? Icons.notifications_active : Icons.notifications_none,
-              color: isFollowing ? Theme.of(context).colorScheme.primary : Colors.grey,
-            ),
-          ),
+          isLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : GestureDetector(
+                  onTap: () =>
+                      ref.read(followedPlatformsProvider.notifier).toggle(platform.id),
+                  child: Icon(
+                    isFollowing ? Icons.notifications_active : Icons.notifications_none,
+                    color: isFollowing
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.grey,
+                  ),
+                ),
         ],
       ),
       onTap: () => context.push('/platforms/${platform.id}', extra: platform),
