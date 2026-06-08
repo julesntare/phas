@@ -61,6 +61,23 @@ class _PlatformDetailScreenState
     }
   }
 
+  Future<void> _testNotification() async {
+    setState(() { _submitting = true; _message = null; });
+    try {
+      await ref.read(apiClientProvider).post(
+        '/api/dev/test-notification',
+        {'platformId': widget.platform.id},
+      );
+      if (mounted) {
+        setState(() => _message = 'Notification sent — background the app and check your tray.');
+      }
+    } on ApiException catch (e) {
+      setState(() => _message = 'Notify error: ${e.message}');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   Future<void> _openAffectedSheet() async {
     final submitted = await showModalBottomSheet<bool>(
       context: context,
@@ -139,12 +156,27 @@ class _PlatformDetailScreenState
             if (kDebugMode) ...[
               const SizedBox(height: 24),
               const Divider(),
-              TextButton.icon(
-                onPressed: _submitting ? null : _seedIncident,
-                icon: const Icon(Icons.science_outlined, size: 16),
-                label: const Text('Seed test incident',
-                    style: TextStyle(fontSize: 12)),
-                style: TextButton.styleFrom(foregroundColor: Colors.grey),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: _submitting ? null : _seedIncident,
+                      icon: const Icon(Icons.science_outlined, size: 16),
+                      label: const Text('Seed incident',
+                          style: TextStyle(fontSize: 12)),
+                      style: TextButton.styleFrom(foregroundColor: Colors.grey),
+                    ),
+                  ),
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: _submitting ? null : _testNotification,
+                      icon: const Icon(Icons.notifications_outlined, size: 16),
+                      label: const Text('Test notification',
+                          style: TextStyle(fontSize: 12)),
+                      style: TextButton.styleFrom(foregroundColor: Colors.grey),
+                    ),
+                  ),
+                ],
               ),
             ],
             if (_message != null) ...[
