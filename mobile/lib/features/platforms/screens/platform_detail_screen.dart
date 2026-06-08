@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -33,6 +34,28 @@ class _PlatformDetailScreenState
       setState(() => _message = "Thanks — noted as working for you.");
     } on ApiException catch (e) {
       setState(() => _message = 'Error: ${e.message}');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _seedIncident() async {
+    setState(() { _submitting = true; _message = null; });
+    try {
+      final result = await ref.read(apiClientProvider).post(
+        '/api/dev/seed-incident',
+        {'platformId': widget.platform.id},
+        auth: false,
+      );
+      final incidentId = result['incidentId'] as String;
+      if (mounted) {
+        context.push('/incidents/$incidentId', extra: {
+          'incidentId': incidentId,
+          'platformName': widget.platform.name,
+        });
+      }
+    } on ApiException catch (e) {
+      setState(() => _message = 'Seed error: ${e.message}');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -113,6 +136,17 @@ class _PlatformDetailScreenState
                 ),
               ],
             ),
+            if (kDebugMode) ...[
+              const SizedBox(height: 24),
+              const Divider(),
+              TextButton.icon(
+                onPressed: _submitting ? null : _seedIncident,
+                icon: const Icon(Icons.science_outlined, size: 16),
+                label: const Text('Seed test incident',
+                    style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(foregroundColor: Colors.grey),
+              ),
+            ],
             if (_message != null) ...[
               const SizedBox(height: 12),
               Text(_message!, textAlign: TextAlign.center),
