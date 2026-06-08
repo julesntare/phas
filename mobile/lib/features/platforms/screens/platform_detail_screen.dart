@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/api_client.dart';
 import '../../../models/platform.dart';
+import '../../../models/rwanda_locations.dart';
 import '../../auth/auth_provider.dart';
+import '../../report/widgets/location_picker_widget.dart';
 
 class PlatformDetailScreen extends ConsumerStatefulWidget {
   final Platform platform;
@@ -122,6 +124,7 @@ class _AffectedReportSheetState
     extends ConsumerState<_AffectedReportSheet> {
   final _textCtrl = TextEditingController();
   XFile? _imageFile;
+  LocationData _location = const LocationData();
   bool _submitting = false;
   String? _error;
 
@@ -189,7 +192,8 @@ class _AffectedReportSheetState
         'platformId': widget.platformId,
         'type': 'affected',
         if (_textCtrl.text.trim().isNotEmpty) 'freeText': _textCtrl.text.trim(),
-        'proofImageUrl': proofImageUrl,
+        'proofImageUrl': ?proofImageUrl,
+        ..._location.toJson(),
       });
 
       if (mounted) Navigator.of(context).pop(true);
@@ -205,87 +209,95 @@ class _AffectedReportSheetState
     return Padding(
       padding: EdgeInsets.fromLTRB(
           24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text('Report an issue',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _textCtrl,
-            maxLines: 3,
-            maxLength: 300,
-            decoration: const InputDecoration(
-              labelText: 'What\'s happening? (optional)',
-              hintText: 'e.g. "Payment page not loading since this morning"',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Image preview or picker button
-          if (_imageFile != null)
-            Stack(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.file(
-                    File(_imageFile!.path),
-                    height: 160,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
+                const Expanded(
+                  child: Text('Report an issue',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                 ),
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: GestureDetector(
-                    onTap: () => setState(() => _imageFile = null),
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
-                        shape: BoxShape.circle,
-                      ),
-                      child:
-                          const Icon(Icons.close, color: Colors.white, size: 20),
-                    ),
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
-            )
-          else
-            OutlinedButton.icon(
-              onPressed: _showImageSourceSheet,
-              icon: const Icon(Icons.add_a_photo_outlined),
-              label: const Text('Add proof photo (optional)'),
             ),
-          if (_error != null) ...[
+            const SizedBox(height: 16),
+            TextField(
+              controller: _textCtrl,
+              maxLines: 3,
+              maxLength: 300,
+              decoration: const InputDecoration(
+                labelText: 'What\'s happening? (optional)',
+                hintText: 'e.g. "Payment page not loading since this morning"',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Image preview or picker button
+            if (_imageFile != null)
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(
+                      File(_imageFile!.path),
+                      height: 160,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _imageFile = null),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close,
+                            color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            else
+              OutlinedButton.icon(
+                onPressed: _showImageSourceSheet,
+                icon: const Icon(Icons.add_a_photo_outlined),
+                label: const Text('Add proof photo (optional)'),
+              ),
+            const SizedBox(height: 16),
+            const Divider(),
             const SizedBox(height: 8),
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            LocationPickerWidget(
+              onChanged: (loc) => setState(() => _location = loc),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!, style: const TextStyle(color: Colors.red)),
+            ],
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _submitting ? null : _submit,
+              child: _submitting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Text('Submit report'),
+            ),
           ],
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: _submitting ? null : _submit,
-            child: _submitting
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
-                : const Text('Submit report'),
-          ),
-        ],
+        ),
       ),
     );
   }

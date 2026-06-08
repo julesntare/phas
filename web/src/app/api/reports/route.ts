@@ -20,7 +20,8 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => null);
-  const { platformId, type, district, freeText, proofImageUrl } = body ?? {};
+  const { platformId, type, district, sector, cell, village,
+          latitude, longitude, freeText, proofImageUrl } = body ?? {};
 
   if (!platformId || !VALID_TYPES.has(type)) {
     return NextResponse.json({ error: 'platformId and type (affected|ok) required' }, { status: 400 });
@@ -35,8 +36,17 @@ export async function POST(req: NextRequest) {
   }
 
   const [report] = await sql<{ id: string }[]>`
-    INSERT INTO reports (platform_id, user_id, type, district, free_text, proof_image_url)
-    VALUES (${platformId}, ${user.sub}, ${type}, ${district ?? null}, ${freeText ?? null}, ${proofImageUrl ?? null})
+    INSERT INTO reports (
+      platform_id, user_id, type,
+      district, sector, cell, village,
+      latitude, longitude,
+      free_text, proof_image_url
+    ) VALUES (
+      ${platformId}, ${user.sub}, ${type},
+      ${district ?? null}, ${sector ?? null}, ${cell ?? null}, ${village ?? null},
+      ${latitude ?? null}, ${longitude ?? null},
+      ${freeText ?? null}, ${proofImageUrl ?? null}
+    )
     RETURNING id
   `;
 
