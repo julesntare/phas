@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/api_client.dart';
 import '../../../models/platform.dart';
 import '../../auth/auth_provider.dart';
@@ -9,28 +11,42 @@ class PlatformDetailScreen extends ConsumerStatefulWidget {
   const PlatformDetailScreen({super.key, required this.platform});
 
   @override
-  ConsumerState<PlatformDetailScreen> createState() => _PlatformDetailScreenState();
+  ConsumerState<PlatformDetailScreen> createState() =>
+      _PlatformDetailScreenState();
 }
 
-class _PlatformDetailScreenState extends ConsumerState<PlatformDetailScreen> {
+class _PlatformDetailScreenState
+    extends ConsumerState<PlatformDetailScreen> {
   bool _submitting = false;
   String? _message;
 
-  Future<void> _report(String type) async {
+  Future<void> _reportOk() async {
     setState(() { _submitting = true; _message = null; });
     try {
-      final api = ref.read(apiClientProvider);
-      await api.post('/api/reports', {
+      await ref.read(apiClientProvider).post('/api/reports', {
         'platformId': widget.platform.id,
-        'type': type,
+        'type': 'ok',
       });
-      setState(() => _message = type == 'affected'
-          ? 'Report submitted — thank you.'
-          : 'Thanks, noted as working for you.');
+      setState(() => _message = "Thanks — noted as working for you.");
     } on ApiException catch (e) {
       setState(() => _message = 'Error: ${e.message}');
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _openAffectedSheet() async {
+    final submitted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => _AffectedReportSheet(platformId: widget.platform.id),
+    );
+    if (submitted == true && mounted) {
+      setState(() => _message = 'Report submitted — thank you.');
     }
   }
 
@@ -44,7 +60,8 @@ class _PlatformDetailScreenState extends ConsumerState<PlatformDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(p.authorityName, style: const TextStyle(color: Colors.black54)),
+            Text(p.authorityName,
+                style: const TextStyle(color: Colors.black54)),
             const SizedBox(height: 8),
             _StatusCard(platform: p),
             const SizedBox(height: 32),
@@ -57,23 +74,24 @@ class _PlatformDetailScreenState extends ConsumerState<PlatformDetailScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _submitting ? null : () => _report('affected'),
+                    onPressed: _submitting ? null : _openAffectedSheet,
                     icon: const Icon(Icons.error_outline, color: Colors.red),
-                    label: const Text('Having issues', style: TextStyle(color: Colors.red)),
+                    label: const Text('Having issues',
+                        style: TextStyle(color: Colors.red)),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.red),
-                    ),
+                        side: const BorderSide(color: Colors.red)),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _submitting ? null : () => _report('ok'),
-                    icon: const Icon(Icons.check_circle_outline, color: Colors.green),
-                    label: const Text("I'm fine", style: TextStyle(color: Colors.green)),
+                    onPressed: _submitting ? null : _reportOk,
+                    icon: const Icon(Icons.check_circle_outline,
+                        color: Colors.green),
+                    label: const Text("I'm fine",
+                        style: TextStyle(color: Colors.green)),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.green),
-                    ),
+                        side: const BorderSide(color: Colors.green)),
                   ),
                 ),
               ],
@@ -84,6 +102,190 @@ class _PlatformDetailScreenState extends ConsumerState<PlatformDetailScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Bottom sheet for "Having issues" ─────────────────────────────────────────
+
+class _AffectedReportSheet extends ConsumerStatefulWidget {
+  final String platformId;
+  const _AffectedReportSheet({required this.platformId});
+
+  @override
+  ConsumerState<_AffectedReportSheet> createState() =>
+      _AffectedReportSheetState();
+}
+
+class _AffectedReportSheetState
+    extends ConsumerState<_AffectedReportSheet> {
+  final _textCtrl = TextEditingController();
+  XFile? _imageFile;
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _textCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final image = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1920,
+      maxHeight: 1920,
+      imageQuality: 80,
+    );
+    if (image != null) setState(() => _imageFile = image);
+  }
+
+  void _showImageSourceSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Camera'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Gallery'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submit() async {
+    setState(() { _submitting = true; _error = null; });
+    try {
+      final api = ref.read(apiClientProvider);
+      String? proofImageUrl;
+
+      if (_imageFile != null) {
+        final bytes = await _imageFile!.readAsBytes();
+        proofImageUrl = await api.uploadFile(
+          '/api/uploads',
+          bytes,
+          _imageFile!.name,
+        );
+      }
+
+      await api.post('/api/reports', {
+        'platformId': widget.platformId,
+        'type': 'affected',
+        if (_textCtrl.text.trim().isNotEmpty) 'freeText': _textCtrl.text.trim(),
+        'proofImageUrl': proofImageUrl,
+      });
+
+      if (mounted) Navigator.of(context).pop(true);
+    } on ApiException catch (e) {
+      setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text('Report an issue',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _textCtrl,
+            maxLines: 3,
+            maxLength: 300,
+            decoration: const InputDecoration(
+              labelText: 'What\'s happening? (optional)',
+              hintText: 'e.g. "Payment page not loading since this morning"',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Image preview or picker button
+          if (_imageFile != null)
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    File(_imageFile!.path),
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _imageFile = null),
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child:
+                          const Icon(Icons.close, color: Colors.white, size: 20),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            OutlinedButton.icon(
+              onPressed: _showImageSourceSheet,
+              icon: const Icon(Icons.add_a_photo_outlined),
+              label: const Text('Add proof photo (optional)'),
+            ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(_error!, style: const TextStyle(color: Colors.red)),
+          ],
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: _submitting ? null : _submit,
+            child: _submitting
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
+                : const Text('Submit report'),
+          ),
+        ],
       ),
     );
   }
@@ -106,13 +308,14 @@ class _StatusCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(hasIssue ? Icons.warning_amber_rounded : Icons.check_circle, color: color),
+          Icon(
+              hasIssue ? Icons.warning_amber_rounded : Icons.check_circle,
+              color: color),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              platform.statusLabel,
-              style: TextStyle(color: color, fontWeight: FontWeight.w600),
-            ),
+            child: Text(platform.statusLabel,
+                style: TextStyle(
+                    color: color, fontWeight: FontWeight.w600)),
           ),
         ],
       ),

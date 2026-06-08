@@ -35,6 +35,19 @@ class ApiClient {
     return _parse(res);
   }
 
+  // Uploads a file as multipart/form-data and returns the stored URL.
+  Future<String> uploadFile(String path, List<int> bytes, String filename) async {
+    final token = await SecureStorage.getToken();
+    final uri = Uri.parse('$_baseUrl$path');
+    final request = http.MultipartRequest('POST', uri);
+    if (token != null) request.headers['Authorization'] = 'Bearer $token';
+    request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
+    final streamed = await _client.send(request);
+    final res = await http.Response.fromStream(streamed);
+    final body = _parse(res);
+    return body['url'] as String;
+  }
+
   Future<Map<String, dynamic>> delete(String path) async {
     final token = await SecureStorage.getToken();
     final res = await _client.delete(
@@ -50,6 +63,18 @@ class ApiClient {
   };
 
   Map<String, dynamic> _parse(http.Response res) {
+    if (res.statusCode == 401) {
+      SecureStorage.deleteToken();
+      throw const UnauthenticatedException();
+    }
+
+    // Vercel (and other hosts) return HTML error pages on 5xx.
+    // Guard before attempting JSON decode.
+    final contentType = res.headers['content-type'] ?? '';
+    if (!contentType.contains('application/json')) {
+      throw ApiException(res.statusCode, 'Server error (${res.statusCode})');
+    }
+
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode >= 400) {
       throw ApiException(
@@ -59,6 +84,12 @@ class ApiClient {
     }
     return body;
   }
+}
+
+class UnauthenticatedException implements Exception {
+  const UnauthenticatedException();
+  @override
+  String toString() => 'UnauthenticatedException';
 }
 
 class ApiException implements Exception {

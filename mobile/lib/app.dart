@@ -9,18 +9,20 @@ import 'models/platform.dart';
 
 final _router = GoRouter(
   initialLocation: '/platforms',
+  // Re-evaluates redirect whenever a token is saved or deleted.
+  refreshListenable: SecureStorage.authVersion,
   redirect: (context, state) async {
     final hasToken = await SecureStorage.hasToken();
     final onAuth = state.matchedLocation.startsWith('/auth');
     if (!hasToken && !onAuth) return '/auth/phone';
+    if (hasToken && onAuth) return '/platforms';
     return null;
   },
   routes: [
     GoRoute(path: '/auth/phone', builder: (_, _) => const PhoneEntryScreen()),
     GoRoute(
       path: '/auth/verify',
-      builder: (_, state) =>
-          OtpVerifyScreen(phone: state.extra as String),
+      builder: (_, state) => OtpVerifyScreen(phone: state.extra as String),
     ),
     GoRoute(path: '/platforms', builder: (_, _) => const PlatformsScreen()),
     GoRoute(
@@ -39,8 +41,9 @@ class PhasApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'PHAS',
       routerConfig: _router,
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF0055A4), // Rwanda blue
+        colorSchemeSeed: const Color(0xFF0055A4),
         useMaterial3: true,
       ),
     );

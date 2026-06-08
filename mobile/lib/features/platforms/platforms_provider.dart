@@ -3,6 +3,8 @@ import '../../core/api_client.dart';
 import '../../models/platform.dart';
 import '../auth/auth_provider.dart';
 
+export '../../core/api_client.dart' show UnauthenticatedException;
+
 final platformsProvider = FutureProvider<List<Platform>>((ref) async {
   final api = ref.read(apiClientProvider);
   final res = await api.get('/api/platforms');
@@ -22,9 +24,14 @@ class FollowedPlatformsNotifier extends AsyncNotifier<Set<String>> {
 
   @override
   Future<Set<String>> build() async {
-    final res = await _api.get('/api/subscriptions');
-    final ids = res['platformIds'] as List<dynamic>;
-    return ids.map((e) => e as String).toSet();
+    try {
+      final res = await _api.get('/api/subscriptions');
+      final ids = res['platformIds'] as List<dynamic>;
+      return ids.map((e) => e as String).toSet();
+    } on UnauthenticatedException {
+      // Token was cleared — router will redirect to /auth/phone via authVersion.
+      return {};
+    }
   }
 
   Future<void> follow(String platformId) async {
