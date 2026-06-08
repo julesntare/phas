@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_client.dart';
+import '../../core/notifications.dart';
 import '../../core/storage.dart';
 import '../../models/user.dart';
 
@@ -32,12 +33,14 @@ class AuthNotifier extends AsyncNotifier<User?> {
       final token = res['token'] as String;
       await SecureStorage.saveToken(token);
       state = AsyncData(User.fromJson(res['user'] as Map<String, dynamic>));
+      NotificationService.registerToken(_api).catchError((_) {});
     } catch (e, st) {
       state = AsyncError(e, st);
     }
   }
 
   Future<void> signOut() async {
+    await _api.delete('/api/devices').catchError((_) => <String, dynamic>{});
     await SecureStorage.deleteToken();
     state = const AsyncData(null);
   }
