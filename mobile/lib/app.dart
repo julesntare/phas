@@ -5,6 +5,7 @@ import 'features/auth/screens/phone_entry_screen.dart';
 import 'features/auth/screens/otp_verify_screen.dart';
 import 'features/platforms/screens/platforms_screen.dart';
 import 'features/platforms/screens/platform_detail_screen.dart';
+import 'features/incidents/incident_detail_screen.dart';
 import 'models/platform.dart';
 
 final _router = GoRouter(
@@ -29,6 +30,16 @@ final _router = GoRouter(
       path: '/platforms/:id',
       builder: (_, state) =>
           PlatformDetailScreen(platform: state.extra as Platform),
+    ),
+    GoRoute(
+      path: '/incidents/:id',
+      builder: (_, state) {
+        final extra = state.extra as Map<String, String>;
+        return IncidentDetailScreen(
+          incidentId: extra['incidentId']!,
+          platformName: extra['platformName']!,
+        );
+      },
     ),
   ],
 );

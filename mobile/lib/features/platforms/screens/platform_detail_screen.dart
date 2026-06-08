@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/api_client.dart';
 import '../../../models/platform.dart';
@@ -66,6 +67,20 @@ class _PlatformDetailScreenState
                 style: const TextStyle(color: Colors.black54)),
             const SizedBox(height: 8),
             _StatusCard(platform: p),
+            if (p.incidentId != null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => context.push(
+                  '/incidents/${p.incidentId}',
+                  extra: {
+                    'incidentId': p.incidentId!,
+                    'platformName': p.name,
+                  },
+                ),
+                icon: const Icon(Icons.forum_outlined),
+                label: const Text('View incident thread'),
+              ),
+            ],
             const SizedBox(height: 32),
             const Text(
               'How is it working for you right now?',

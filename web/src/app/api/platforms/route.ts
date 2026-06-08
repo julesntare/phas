@@ -8,6 +8,7 @@ export async function GET() {
     name: string;
     category: string;
     authority_name: string;
+    incident_id: string | null;
     state: string | null;
     opened_at: string | null;
   }[]>`
@@ -16,12 +17,13 @@ export async function GET() {
       p.name,
       p.category,
       a.name AS authority_name,
+      i.incident_id,
       i.state,
       i.opened_at
     FROM platforms p
     JOIN authorities a ON a.id = p.authority_id
     LEFT JOIN LATERAL (
-      SELECT state, opened_at
+      SELECT id AS incident_id, state, opened_at
       FROM incidents
       WHERE platform_id = p.id AND state <> 'resolved'
       ORDER BY opened_at DESC

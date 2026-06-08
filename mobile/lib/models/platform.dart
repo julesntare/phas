@@ -3,6 +3,7 @@ class Platform {
   final String name;
   final String category;
   final String authorityName;
+  final String? incidentId;
   final String? state;
   final DateTime? openedAt;
 
@@ -11,6 +12,7 @@ class Platform {
     required this.name,
     required this.category,
     required this.authorityName,
+    this.incidentId,
     this.state,
     this.openedAt,
   });
@@ -20,6 +22,7 @@ class Platform {
         name: j['name'] as String,
         category: j['category'] as String,
         authorityName: j['authority_name'] as String,
+        incidentId: j['incident_id'] as String?,
         state: j['state'] as String?,
         openedAt: j['opened_at'] != null
             ? DateTime.parse(j['opened_at'] as String)

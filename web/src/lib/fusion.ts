@@ -4,7 +4,7 @@ import { dispatchNotifications } from './notifier';
 const T = {
   openProbeFailures:   Number(process.env.FUSION_OPEN_PROBE_FAILURES   ?? 2),
   openAffectedRatio:   Number(process.env.FUSION_OPEN_AFFECTED_RATIO   ?? 0.30),
-  openMinReporters:    Number(process.env.FUSION_OPEN_MIN_REPORTERS    ?? 5),
+  openMinReporters:    Number(process.env.FUSION_OPEN_MIN_REPORTERS    ?? 2),
   openWindowHours:     Number(process.env.FUSION_OPEN_WINDOW_HOURS     ?? 2),
   closeProbePass:      Number(process.env.FUSION_CLOSE_PROBE_PASSES    ?? 3),
   closeRatioThreshold: Number(process.env.FUSION_CLOSE_RATIO_THRESHOLD ?? 0.10),
