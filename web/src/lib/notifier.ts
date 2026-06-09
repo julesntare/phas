@@ -83,7 +83,71 @@ async function sendFcmMessage(
   return 'ok'; // non-fatal for other errors
 }
 
+// ── Internal helpers ──────────────────────────────────────────────────────────
+
+async function resolveServiceAccount(): Promise<{ sa: ServiceAccount; accessToken: string } | null> {
+  const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+  if (!saRaw) {
+    console.log('[notifier] FIREBASE_SERVICE_ACCOUNT_BASE64 not set — skipping FCM');
+    return null;
+  }
+  const sa: ServiceAccount = JSON.parse(Buffer.from(saRaw, 'base64').toString('utf8'));
+  const accessToken = await getFcmAccessToken(sa);
+  return { sa, accessToken };
+}
+
+async function sendToTokens(
+  tokens: string[],
+  title: string,
+  body: string,
+  data: Record<string, string>,
+  accessToken: string,
+  projectId: string,
+): Promise<void> {
+  const stale: string[] = [];
+  for (const token of tokens) {
+    const result = await sendFcmMessage(token, title, body, data, accessToken, projectId);
+    if (result === 'invalid_token') stale.push(token);
+  }
+  if (stale.length > 0) {
+    await sql`DELETE FROM device_tokens WHERE token = ANY(${stale})`;
+  }
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
+
+// Sends operator state-change updates to all platform subscribers.
+// Does NOT use the notifications_sent dedup table — operator updates are
+// always delivered regardless of whether the user saw the initial alert.
+export async function dispatchOperatorUpdate(
+  platformId: string,
+  incidentId: string,
+  title: string,
+  body: string,
+): Promise<void> {
+  const creds = await resolveServiceAccount();
+  if (!creds) return;
+
+  const tokenRows = await sql<{ token: string }[]>`
+    SELECT dt.token
+    FROM device_tokens dt
+    JOIN subscriptions s ON s.user_id = dt.user_id
+    WHERE s.platform_id = ${platformId}
+  `;
+  if (tokenRows.length === 0) return;
+
+  const [platform] = await sql<{ name: string }[]>`SELECT name FROM platforms WHERE id = ${platformId}`;
+  const data = { incidentId, platformId, platformName: platform?.name ?? '' };
+
+  await sendToTokens(
+    tokenRows.map(r => r.token),
+    title,
+    body,
+    data,
+    creds.accessToken,
+    creds.sa.project_id,
+  );
+}
 
 export async function dispatchNotifications(
   platformId: string,
@@ -113,39 +177,22 @@ export async function dispatchNotifications(
     WHERE user_id = ANY(${userIds}::uuid[])
   `;
 
-  if (tokenRows.length === 0) {
-    // No tokens yet — still mark as notified so we don't retry forever.
-    await markNotified(userIds, incidentId);
-    return;
-  }
+  await markNotified(userIds, incidentId);
+  if (tokenRows.length === 0) return;
 
-  const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
-  if (!saRaw) {
-    console.log(`[notifier] [dev] FIREBASE_SERVICE_ACCOUNT_BASE64 not set — skipping FCM`);
-    await markNotified(userIds, incidentId);
-    return;
-  }
-
-  const sa: ServiceAccount = JSON.parse(Buffer.from(saRaw, 'base64').toString('utf8'));
-  const accessToken = await getFcmAccessToken(sa);
+  const creds = await resolveServiceAccount();
+  if (!creds) return;
 
   const title = `⚠️ ${platform?.name ?? 'A platform'} is having issues`;
   const body  = 'Others are reporting problems. Tap to follow the incident.';
   const data  = { incidentId, platformId, platformName: platform?.name ?? '' };
 
-  const staleTokens: string[] = [];
-
-  for (const { token } of tokenRows) {
-    const result = await sendFcmMessage(token, title, body, data, accessToken, sa.project_id);
-    if (result === 'invalid_token') staleTokens.push(token);
-  }
-
-  // Clean up invalid tokens so we don't retry them.
-  if (staleTokens.length > 0) {
-    await sql`DELETE FROM device_tokens WHERE token = ANY(${staleTokens})`;
-  }
-
-  await markNotified(userIds, incidentId);
+  await sendToTokens(
+    tokenRows.map(r => r.token),
+    title, body, data,
+    creds.accessToken,
+    creds.sa.project_id,
+  );
 }
 
 async function markNotified(userIds: string[], incidentId: string): Promise<void> {

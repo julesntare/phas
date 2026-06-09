@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 import { requireOperatorAuth } from '@/lib/operator-auth';
+import { dispatchOperatorUpdate } from '@/lib/notifier';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   acknowledge:       ['detected', 'confirmed', 'recurred'],
@@ -93,11 +94,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const [platform] = await sql<{ name: string }[]>`SELECT name FROM platforms WHERE id = ${incident.platform_id}`;
+  const platformName = platform?.name ?? 'Platform';
+
   if (action === 'update') {
     await sql`
       INSERT INTO incident_events (incident_id, from_state, to_state, source, note)
       VALUES (${id}, ${incident.state}, ${incident.state}, 'helpdesk', ${note})
     `;
+    dispatchOperatorUpdate(
+      incident.platform_id, id,
+      `📢 ${platformName} — Operator update`,
+      note,
+    ).catch(console.error);
     return NextResponse.json({ ok: true });
   }
 
@@ -121,6 +130,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     INSERT INTO incident_events (incident_id, from_state, to_state, source, note)
     VALUES (${id}, ${incident.state}, ${newState}, 'helpdesk', ${note || null})
   `;
+
+  const notifCopy: Record<string, { title: string; body: string }> = {
+    acknowledge:       { title: `🔧 ${platformName} — Being investigated`, body: 'The operator is looking into the issue.' },
+    partially_resolve: { title: `🔄 ${platformName} — Partially resolved`, body: 'Some services restored. Still monitoring.' },
+    resolve:           { title: `✅ ${platformName} — Issue resolved`, body: 'The platform is back to normal.' },
+  };
+  const copy = notifCopy[action];
+  if (copy) {
+    dispatchOperatorUpdate(incident.platform_id, id, copy.title, copy.body).catch(console.error);
+  }
 
   return NextResponse.json({ ok: true, newState });
 }
