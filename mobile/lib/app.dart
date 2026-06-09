@@ -62,16 +62,17 @@ class _PhasAppState extends State<PhasApp> {
   void initState() {
     super.initState();
 
-    // Wire tap handler once the router is ready.
-    NotificationService.listenForTaps((path, extra) {
-      appRouter.push(path, extra: extra);
-    });
-
-    // Deliver any notification tap that opened the app from terminated state.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      NotificationService.consumePending((path, extra) {
+    void navigate(String path, Map<String, String> extra) =>
         appRouter.push(path, extra: extra);
-      });
+
+    // Register callback — also flushes any local-notification tap that arrived
+    // before the router was ready.
+    NotificationService.setTapCallback(navigate);
+    // Handle background→foreground taps (onMessageOpenedApp).
+    NotificationService.listenForTaps(navigate);
+    // Deliver any tap that arrived while the app was fully terminated.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.consumePending(navigate);
     });
   }
 
