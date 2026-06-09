@@ -79,7 +79,7 @@ class _PlatformDetailScreenState
   }
 
   Future<void> _openAffectedSheet() async {
-    final submitted = await showModalBottomSheet<bool>(
+    final result = await showModalBottomSheet<Map<String, dynamic>?>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -88,7 +88,24 @@ class _PlatformDetailScreenState
       ),
       builder: (_) => _AffectedReportSheet(platformId: widget.platform.id),
     );
-    if (submitted == true && mounted) {
+    if (result?['submitted'] != true || !mounted) return;
+
+    final incidentId = result?['incidentId'] as String?;
+    if (incidentId != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Report submitted. Others are affected too.'),
+          action: SnackBarAction(
+            label: 'View thread',
+            onPressed: () => context.push(
+              '/incidents/$incidentId',
+              extra: {'incidentId': incidentId, 'platformName': widget.platform.name},
+            ),
+          ),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    } else {
       setState(() => _message = 'Report submitted — thank you.');
     }
   }
@@ -269,7 +286,7 @@ class _AffectedReportSheetState
         );
       }
 
-      await api.post('/api/reports', {
+      final result = await api.post('/api/reports', {
         'platformId': widget.platformId,
         'type': 'affected',
         if (_textCtrl.text.trim().isNotEmpty) 'freeText': _textCtrl.text.trim(),
@@ -277,7 +294,8 @@ class _AffectedReportSheetState
         ..._location.toJson(),
       });
 
-      if (mounted) Navigator.of(context).pop(true);
+      final incidentId = result['incidentId'] as String?;
+      if (mounted) Navigator.of(context).pop({'submitted': true, 'incidentId': incidentId});
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } finally {

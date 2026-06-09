@@ -50,8 +50,21 @@ export async function POST(req: NextRequest) {
     RETURNING id
   `;
 
-  // Fusion runs async — do not await on the request path.
-  runFusionForPlatform(platformId).catch(console.error);
+  if (type === 'affected') {
+    // Await fusion so we can return the active incident ID in the same response.
+    await runFusionForPlatform(platformId).catch(console.error);
+    const [incident] = await sql<{ id: string }[]>`
+      SELECT id FROM incidents
+      WHERE platform_id = ${platformId} AND state <> 'resolved'
+      ORDER BY opened_at DESC LIMIT 1
+    `;
+    return NextResponse.json(
+      { id: report.id, incidentId: incident?.id ?? null },
+      { status: 201 },
+    );
+  }
 
+  // 'ok' reports: fire-and-forget fusion, respond immediately.
+  runFusionForPlatform(platformId).catch(console.error);
   return NextResponse.json({ id: report.id }, { status: 201 });
 }

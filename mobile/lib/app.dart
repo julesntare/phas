@@ -6,6 +6,7 @@ import 'features/auth/screens/phone_entry_screen.dart';
 import 'features/auth/screens/otp_verify_screen.dart';
 import 'features/incidents/incident_detail_screen.dart';
 import 'features/platforms/screens/platforms_screen.dart';
+import 'features/profile/profile_screen.dart';
 import 'features/platforms/screens/platform_detail_screen.dart';
 import 'models/platform.dart';
 
@@ -41,6 +42,10 @@ final appRouter = GoRouter(
           platformName: extra['platformName']!,
         );
       },
+    ),
+    GoRoute(
+      path: '/profile',
+      builder: (_, _) => const ProfileScreen(),
     ),
   ],
 );

@@ -48,6 +48,19 @@ class ApiClient {
     return body['url'] as String;
   }
 
+  Future<Map<String, dynamic>> patch(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final token = await SecureStorage.getToken();
+    final res = await _client.patch(
+      Uri.parse('$_baseUrl$path'),
+      headers: _headers(token),
+      body: jsonEncode(body),
+    );
+    return _parse(res);
+  }
+
   Future<Map<String, dynamic>> delete(String path) async {
     final token = await SecureStorage.getToken();
     final res = await _client.delete(
