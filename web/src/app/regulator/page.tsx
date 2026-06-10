@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function RegulatorLoginPage() {
   const router = useRouter();
@@ -33,27 +34,74 @@ export default function RegulatorLoginPage() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb' }}>
-      <div style={{ background: '#fff', padding: '2rem', borderRadius: '0.75rem', border: '1px solid #e5e7eb', width: '100%', maxWidth: 400 }}>
-        <div style={{ marginBottom: '1.5rem' }}>
-          <h1 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>PHAS Regulator Portal</h1>
-          <p style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem' }}>Cross-platform health oversight</p>
+    <main className="min-h-screen flex">
+      {/* Left — brand panel */}
+      <div className="hidden lg:flex flex-col justify-between w-2/5 bg-linear-to-br from-brand-light to-brand-dark p-10">
+        <Link href="/" className="flex items-center gap-2 text-white/80 text-sm no-underline hover:text-white">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to PHAS
+        </Link>
+        <div>
+          <div className="w-14 h-14 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center mb-6">
+            <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          </div>
+          <h2 className="text-3xl font-extrabold text-white leading-tight mb-3">
+            Regulator<br />Portal
+          </h2>
+          <p className="text-white/60 text-sm leading-relaxed">
+            Cross-platform health oversight and accountability reporting for Rwanda&apos;s e-service ecosystem.
+          </p>
         </div>
-        <form onSubmit={handleSubmit}>
-          <label style={labelStyle}>Email</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} required style={inputStyle} placeholder="regulator@example.com" />
-          <label style={{ ...labelStyle, marginTop: '1rem' }}>Password</label>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} required style={inputStyle} />
-          {error && <p style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '0.75rem' }}>{error}</p>}
-          <button type="submit" disabled={loading} style={btnStyle}>
-            {loading ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
+        <p className="text-white/30 text-xs">PHAS — Rwanda</p>
+      </div>
+
+      {/* Right — form */}
+      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-gray-50">
+        <div className="w-full max-w-sm">
+          <div className="mb-8">
+            <h1 className="text-2xl font-extrabold text-gray-900">Sign in</h1>
+            <p className="text-gray-500 text-sm mt-1">Regulator credentials required</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
+              <input
+                type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                placeholder="regulator@example.com"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
+              <input
+                type="password" value={password} onChange={e => setPassword(e.target.value)} required
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition"
+              />
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-100 rounded-xl px-3.5 py-2.5 text-sm">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit" disabled={loading}
+              className="w-full py-3 bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold rounded-xl text-sm transition-colors"
+            >
+              {loading ? 'Signing in…' : 'Sign in'}
+            </button>
+          </form>
+        </div>
       </div>
     </main>
   );
 }
-
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.25rem' };
-const inputStyle: React.CSSProperties = { width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #d1d5db', fontSize: '0.875rem', boxSizing: 'border-box' };
-const btnStyle: React.CSSProperties = { marginTop: '1.25rem', width: '100%', padding: '0.625rem', background: '#0055A4', color: '#fff', border: 'none', borderRadius: '0.375rem', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem' };

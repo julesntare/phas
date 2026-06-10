@@ -4,10 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface Summary {
-  total_platforms: string;
-  platforms_with_issues: string;
-  active_incidents: string;
-  resolved_this_week: string;
+  total_platforms: string; platforms_with_issues: string;
+  active_incidents: string; resolved_this_week: string;
 }
 interface AuthorityStat {
   authority_id: string; authority_name: string;
@@ -22,19 +20,20 @@ interface ResolvedIncident {
   platform_name: string; authority_name: string;
 }
 interface Stats {
-  summary: Summary;
-  byAuthority: AuthorityStat[];
-  activeIncidents: ActiveIncident[];
-  recentResolved: ResolvedIncident[];
+  summary: Summary; byAuthority: AuthorityStat[];
+  activeIncidents: ActiveIncident[]; recentResolved: ResolvedIncident[];
 }
 
-const STATE_COLOR: Record<string, string> = {
-  detected: '#f59e0b', confirmed: '#ef4444', acknowledged: '#f97316',
-  partially_resolved: '#a78bfa', recurred: '#dc2626',
-};
 const STATE_LABEL: Record<string, string> = {
   detected: 'Detecting', confirmed: 'Confirmed', acknowledged: 'Acknowledged',
   partially_resolved: 'Partially resolved', recurred: 'Recurred',
+};
+const STATE_CLASSES: Record<string, string> = {
+  detected:           'bg-amber-50 text-amber-700 border-amber-200',
+  confirmed:          'bg-red-50 text-red-700 border-red-200',
+  acknowledged:       'bg-orange-50 text-orange-700 border-orange-200',
+  partially_resolved: 'bg-violet-50 text-violet-700 border-violet-200',
+  recurred:           'bg-red-50 text-red-800 border-red-300',
 };
 
 function timeAgo(dateStr: string) {
@@ -64,13 +63,9 @@ export default function RegulatorDashboard() {
     if (!token) { router.replace('/regulator'); return; }
     const info = localStorage.getItem('regulator_info');
     if (info) setRegulatorName(JSON.parse(info).name ?? JSON.parse(info).email);
-
     fetch('/api/regulator/stats', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
-      .then(data => {
-        if (data.summary) setStats(data);
-        else setError(data.error ?? 'Failed to load');
-      })
+      .then(data => { if (data.summary) setStats(data); else setError(data.error ?? 'Failed to load'); })
       .catch(() => setError('Network error'))
       .finally(() => setLoading(false));
   }, [router]);
@@ -81,117 +76,148 @@ export default function RegulatorDashboard() {
     router.replace('/regulator');
   }
 
-  if (loading) return <main style={{ padding: '2rem', color: '#9ca3af' }}>Loading…</main>;
-  if (error || !stats) return <main style={{ padding: '2rem', color: '#ef4444' }}>{error || 'No data'}</main>;
+  if (loading) return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+  if (error || !stats) return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <p className="text-red-500 text-sm">{error || 'No data'}</p>
+    </div>
+  );
 
   const { summary, byAuthority, activeIncidents, recentResolved } = stats;
 
   return (
-    <main style={{ maxWidth: 900, margin: '0 auto', padding: '1.5rem 1rem' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <div>
-          <h1 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>System Overview</h1>
-          {regulatorName && <p style={{ color: '#6b7280', fontSize: '0.8rem', margin: '0.2rem 0 0' }}>{regulatorName}</p>}
-        </div>
-        <button onClick={signOut} style={{ fontSize: '0.8rem', color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', padding: '0.3rem 0.75rem', borderRadius: '0.375rem', cursor: 'pointer' }}>
-          Sign out
-        </button>
-      </div>
-
-      {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '2rem' }}>
-        {[
-          { label: 'Platforms', value: summary.total_platforms, color: '#0055A4' },
-          { label: 'With issues', value: summary.platforms_with_issues, color: '#ef4444' },
-          { label: 'Active incidents', value: summary.active_incidents, color: '#f97316' },
-          { label: 'Resolved this week', value: summary.resolved_this_week, color: '#16a34a' },
-        ].map(({ label, value, color }) => (
-          <div key={label} style={{ padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', background: '#fff' }}>
-            <p style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700, color }}>{value}</p>
-            <p style={{ margin: '0.2rem 0 0', fontSize: '0.75rem', color: '#6b7280' }}>{label}</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Nav */}
+      <nav className="bg-white border-b border-gray-100 sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-lg bg-linear-to-br from-brand-light to-brand-dark flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-900 leading-none">Regulator Portal</p>
+              {regulatorName && <p className="text-xs text-gray-400 leading-none mt-0.5">{regulatorName}</p>}
+            </div>
           </div>
-        ))}
-      </div>
+          <button onClick={signOut}
+            className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+            Sign out
+          </button>
+        </div>
+      </nav>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-        {/* Active incidents */}
-        <section>
-          <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>
-            Active incidents ({activeIncidents.length})
-          </h2>
-          {activeIncidents.length === 0 && <p style={{ color: '#9ca3af', fontSize: '0.875rem' }}>None — all clear.</p>}
-          {activeIncidents.map(inc => {
-            const color = STATE_COLOR[inc.state] ?? '#6b7280';
-            return (
-              <div key={inc.id} style={{ padding: '0.75rem', border: `1px solid ${color}30`, background: `${color}08`, borderRadius: '0.5rem', marginBottom: '0.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <p style={{ margin: 0, fontWeight: 600, fontSize: '0.875rem' }}>{inc.platform_name}</p>
-                    <p style={{ margin: '0.1rem 0 0', fontSize: '0.75rem', color: '#6b7280' }}>
-                      {inc.authority_name} · open {timeAgo(inc.opened_at)} · {inc.cosign_count} co-signs
-                    </p>
+      <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+        {/* Summary cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: 'Platforms', value: summary.total_platforms, icon: '🏛', accent: 'text-brand', bg: 'bg-blue-50' },
+            { label: 'With issues',     value: summary.platforms_with_issues, icon: '⚠️', accent: 'text-red-600',   bg: 'bg-red-50'   },
+            { label: 'Active incidents', value: summary.active_incidents,      icon: '🔴', accent: 'text-orange-600', bg: 'bg-orange-50' },
+            { label: 'Resolved this week', value: summary.resolved_this_week,   icon: '✅', accent: 'text-green-700', bg: 'bg-green-50'  },
+          ].map(({ label, value, icon, accent, bg }) => (
+            <div key={label} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+              <div className={`w-9 h-9 ${bg} rounded-xl flex items-center justify-center text-lg mb-3`}>
+                {icon}
+              </div>
+              <p className={`text-3xl font-extrabold ${accent}`}>{value}</p>
+              <p className="text-xs text-gray-400 mt-1 font-medium">{label}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Active incidents */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-gray-700">Active incidents</h2>
+              <span className="text-xs bg-gray-100 text-gray-500 font-semibold px-2 py-0.5 rounded-full">
+                {activeIncidents.length}
+              </span>
+            </div>
+            {activeIncidents.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-2xl mb-1">✅</p>
+                <p className="text-sm text-gray-400">All clear</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {activeIncidents.map(inc => (
+                  <div key={inc.id} className="rounded-xl border border-gray-100 bg-gray-50/60 px-3.5 py-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-800 truncate">{inc.platform_name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {inc.authority_name} · {timeAgo(inc.opened_at)} · {inc.cosign_count} co-signs
+                        </p>
+                      </div>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${STATE_CLASSES[inc.state] ?? 'bg-gray-50 text-gray-600 border-gray-200'}`}>
+                        {STATE_LABEL[inc.state] ?? inc.state}
+                      </span>
+                    </div>
                   </div>
-                  <span style={{ background: color + '20', color, border: `1px solid ${color}50`, borderRadius: '9999px', padding: '0.15rem 0.6rem', fontSize: '0.7rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                    {STATE_LABEL[inc.state] ?? inc.state}
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* By authority */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+            <h2 className="text-sm font-bold text-gray-700 mb-4">By authority</h2>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-xs text-gray-400 font-semibold uppercase tracking-wide">
+                  <th className="text-left pb-2 pr-4">Authority</th>
+                  <th className="text-center pb-2 px-2">Platforms</th>
+                  <th className="text-center pb-2 px-2">Active</th>
+                  <th className="text-right pb-2">Avg resolve</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {byAuthority.map(a => (
+                  <tr key={a.authority_id} className="text-xs">
+                    <td className="py-2.5 pr-4 font-medium text-gray-800">{a.authority_name}</td>
+                    <td className="py-2.5 px-2 text-center text-gray-500">{a.total_platforms}</td>
+                    <td className="py-2.5 px-2 text-center">
+                      {Number(a.active_incidents) > 0
+                        ? <span className="text-red-600 font-bold">{a.active_incidents}</span>
+                        : <span className="text-green-500">—</span>}
+                    </td>
+                    <td className="py-2.5 text-right text-gray-400">
+                      {a.avg_resolve_hours ? `${a.avg_resolve_hours}h` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Resolved this week */}
+        {recentResolved.length > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+            <h2 className="text-sm font-bold text-gray-700 mb-4">Resolved this week</h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {recentResolved.map(inc => (
+                <div key={inc.id} className="bg-green-50 border border-green-100 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{inc.platform_name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{inc.authority_name}</p>
+                  </div>
+                  <span className="text-xs font-bold text-green-700 shrink-0">
+                    {duration(inc.opened_at, inc.closed_at)}
                   </span>
                 </div>
-              </div>
-            );
-          })}
-        </section>
-
-        {/* By authority */}
-        <section>
-          <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>By authority</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #e5e7eb', color: '#6b7280' }}>
-                <th style={{ textAlign: 'left', padding: '0.3rem 0.5rem 0.3rem 0', fontWeight: 500 }}>Authority</th>
-                <th style={{ textAlign: 'center', padding: '0.3rem 0.5rem', fontWeight: 500 }}>Platforms</th>
-                <th style={{ textAlign: 'center', padding: '0.3rem 0.5rem', fontWeight: 500 }}>Active</th>
-                <th style={{ textAlign: 'right', padding: '0.3rem 0 0.3rem 0.5rem', fontWeight: 500 }}>Avg resolve</th>
-              </tr>
-            </thead>
-            <tbody>
-              {byAuthority.map(a => (
-                <tr key={a.authority_id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  <td style={{ padding: '0.5rem 0.5rem 0.5rem 0', fontWeight: 500 }}>{a.authority_name}</td>
-                  <td style={{ textAlign: 'center', padding: '0.5rem', color: '#6b7280' }}>{a.total_platforms}</td>
-                  <td style={{ textAlign: 'center', padding: '0.5rem' }}>
-                    {Number(a.active_incidents) > 0
-                      ? <span style={{ color: '#ef4444', fontWeight: 600 }}>{a.active_incidents}</span>
-                      : <span style={{ color: '#16a34a' }}>—</span>}
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '0.5rem 0 0.5rem 0.5rem', color: '#6b7280' }}>
-                    {a.avg_resolve_hours ? `${a.avg_resolve_hours}h` : '—'}
-                  </td>
-                </tr>
               ))}
-            </tbody>
-          </table>
-        </section>
-      </div>
-
-      {/* Recently resolved */}
-      {recentResolved.length > 0 && (
-        <section>
-          <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>Resolved this week</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
-            {recentResolved.map(inc => (
-              <div key={inc.id} style={{ padding: '0.75rem', border: '1px solid #d1fae5', background: '#f0fdf4', borderRadius: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <p style={{ margin: 0, fontWeight: 500, fontSize: '0.875rem' }}>{inc.platform_name}</p>
-                  <p style={{ margin: '0.1rem 0 0', fontSize: '0.75rem', color: '#6b7280' }}>{inc.authority_name}</p>
-                </div>
-                <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600 }}>
-                  {duration(inc.opened_at, inc.closed_at)}
-                </span>
-              </div>
-            ))}
+            </div>
           </div>
-        </section>
-      )}
-    </main>
+        )}
+      </div>
+    </div>
   );
 }
