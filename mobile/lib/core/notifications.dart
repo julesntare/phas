@@ -1,6 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'api_client.dart';
+import 'notification_history.dart';
 
 // Stores the route to navigate to when the app was opened from a
 // terminated-state notification tap. Consumed after the first frame.
@@ -19,12 +20,21 @@ const _channel = AndroidNotificationChannel(
 (String, Map<String, String>)? _routeFromMessage(RemoteMessage msg) {
   final incidentId = msg.data['incidentId'] as String?;
   if (incidentId == null) return null;
+  final platformName = msg.data['platformName'] as String? ?? 'Platform';
+
+  // Save to history when user opens app via a background/terminated notification.
+  NotificationHistory.add(NotificationEntry(
+    id: msg.messageId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+    title: msg.notification?.title ?? 'PHAS alert',
+    body: msg.notification?.body ?? 'Tap to view the incident.',
+    incidentId: incidentId,
+    platformName: platformName,
+    receivedAt: msg.sentTime ?? DateTime.now(),
+  )).catchError((_) {});
+
   return (
     '/incidents/$incidentId',
-    {
-      'incidentId': incidentId,
-      'platformName': msg.data['platformName'] as String? ?? 'Platform',
-    },
+    {'incidentId': incidentId, 'platformName': platformName},
   );
 }
 
@@ -130,6 +140,16 @@ class NotificationService {
     final body = notification?.body ?? 'Tap to view the incident.';
     final incidentId = msg.data['incidentId'] as String?;
     final platformName = msg.data['platformName'] as String? ?? 'Platform';
+
+    // Persist to local history so the user can review past alerts.
+    NotificationHistory.add(NotificationEntry(
+      id: msg.messageId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      title: title,
+      body: body,
+      incidentId: incidentId,
+      platformName: platformName,
+      receivedAt: DateTime.now(),
+    )).catchError((_) {});
 
     await _localNotifications.show(
       id: msg.hashCode,

@@ -5,3 +5,10 @@
   --color-brand-dark: #003A7A;
   --color-brand-light: #1A6ED8;
 }
+
+summary {
+  list-style: none;
+}
+summary::-webkit-details-marker {
+  display: none;
+}

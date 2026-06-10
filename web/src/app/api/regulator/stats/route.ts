@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const [summary, byAuthority, activeIncidents, recentResolved] = await Promise.all([
+  const [summary, byAuthority, activeIncidents, recentResolved, slaBreaches] = await Promise.all([
     // Overall summary
     sql<{ total_platforms: string; platforms_with_issues: string; active_incidents: string; resolved_this_week: string }[]>`
       SELECT
@@ -69,6 +69,33 @@ export async function GET(req: NextRequest) {
       ORDER BY i.closed_at DESC
       LIMIT 10
     `,
+
+    // SLA breaches: unacknowledged >4h, or unresolved >24h
+    sql<{
+      id: string; state: string; opened_at: Date; hours_open: string;
+      platform_name: string; authority_name: string; breach_type: string;
+    }[]>`
+      SELECT
+        i.id, i.state, i.opened_at,
+        ROUND(EXTRACT(EPOCH FROM (NOW() - i.opened_at)) / 3600, 1)::TEXT AS hours_open,
+        p.name  AS platform_name,
+        a.name  AS authority_name,
+        CASE
+          WHEN i.state IN ('detected', 'confirmed') AND i.opened_at < NOW() - INTERVAL '4 hours'
+            THEN 'unacknowledged'
+          WHEN i.state <> 'resolved' AND i.opened_at < NOW() - INTERVAL '24 hours'
+            THEN 'unresolved'
+        END AS breach_type
+      FROM incidents i
+      JOIN platforms p ON p.id = i.platform_id
+      JOIN authorities a ON a.id = p.authority_id
+      WHERE i.state <> 'resolved'
+        AND (
+          (i.state IN ('detected', 'confirmed') AND i.opened_at < NOW() - INTERVAL '4 hours')
+          OR (i.opened_at < NOW() - INTERVAL '24 hours')
+        )
+      ORDER BY i.opened_at ASC
+    `,
   ]);
 
   return NextResponse.json({
@@ -76,5 +103,6 @@ export async function GET(req: NextRequest) {
     byAuthority,
     activeIncidents,
     recentResolved,
+    slaBreaches,
   });
 }

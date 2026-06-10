@@ -19,9 +19,14 @@ interface ResolvedIncident {
   id: string; opened_at: string; closed_at: string;
   platform_name: string; authority_name: string;
 }
+interface SLABreach {
+  id: string; state: string; opened_at: string; hours_open: string;
+  platform_name: string; authority_name: string; breach_type: string;
+}
 interface Stats {
   summary: Summary; byAuthority: AuthorityStat[];
   activeIncidents: ActiveIncident[]; recentResolved: ResolvedIncident[];
+  slaBreaches: SLABreach[];
 }
 
 const STATE_LABEL: Record<string, string> = {
@@ -87,7 +92,7 @@ export default function RegulatorDashboard() {
     </div>
   );
 
-  const { summary, byAuthority, activeIncidents, recentResolved } = stats;
+  const { summary, byAuthority, activeIncidents, recentResolved, slaBreaches } = stats;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -130,6 +135,45 @@ export default function RegulatorDashboard() {
             </div>
           ))}
         </div>
+
+        {/* SLA alerts */}
+        {slaBreaches.length > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-red-700">SLA violations — {slaBreaches.length} incident{slaBreaches.length > 1 ? 's' : ''}</p>
+                <p className="text-xs text-red-500 mt-0.5">Unacknowledged &gt;4h or unresolved &gt;24h</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {slaBreaches.map(b => (
+                <div key={b.id} className="bg-white rounded-xl border border-red-100 px-4 py-3 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{b.platform_name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{b.authority_name}</p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${STATE_CLASSES[b.state] ?? 'bg-gray-50 text-gray-600 border-gray-200'}`}>
+                      {STATE_LABEL[b.state] ?? b.state}
+                    </span>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-red-600">{b.hours_open}h</p>
+                      <p className="text-xs text-gray-400">
+                        {b.breach_type === 'unacknowledged' ? 'Not acknowledged' : 'Not resolved'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Active incidents */}

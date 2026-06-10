@@ -1,6 +1,7 @@
 import sql from './db';
 import { dispatchNotifications, dispatchResolutionFeedback } from './notifier';
 import { dispatchWebhook } from './webhook';
+import { sendIncidentAlert } from './mailer';
 
 const T = {
   openProbeFailures:   Number(process.env.FUSION_OPEN_PROBE_FAILURES   ?? 2),
@@ -114,6 +115,7 @@ async function maybeOpenIncident(
       WHERE id = ${recent.id}
     `;
     await appendEvent(recent.id, 'resolved', 'recurred', source);
+    alertOperators(platformId, recent.id, 'recurred').catch(console.error);
   } else {
     const [incident] = await sql<{ id: string }[]>`
       INSERT INTO incidents (platform_id, state, confidence)
@@ -121,7 +123,35 @@ async function maybeOpenIncident(
     `;
     await appendEvent(incident.id, null, 'detected', source);
     await dispatchNotifications(platformId, incident.id);
+    alertOperators(platformId, incident.id, 'detected').catch(console.error);
   }
+}
+
+async function alertOperators(
+  platformId: string,
+  incidentId: string,
+  state: 'detected' | 'recurred',
+): Promise<void> {
+  const [platform] = await sql<{ name: string; authority_name: string }[]>`
+    SELECT p.name, a.name AS authority_name
+    FROM platforms p JOIN authorities a ON a.id = p.authority_id
+    WHERE p.id = ${platformId}
+  `;
+  if (!platform) return;
+
+  const operatorRows = await sql<{ email: string }[]>`
+    SELECT email FROM help_desk_accounts WHERE platform_id = ${platformId}
+  `;
+  const emails = operatorRows.map(r => r.email);
+  if (emails.length === 0) return;
+
+  await sendIncidentAlert({
+    to: emails,
+    platformName: platform.name,
+    authorityName: platform.authority_name,
+    incidentId,
+    state,
+  });
 }
 
 async function maybeAdvanceOrClose(

@@ -84,6 +84,11 @@ class _PlatformsScreenState extends ConsumerState<PlatformsScreen> {
         title: const Text('Platforms'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.notifications_none_outlined, size: 22),
+            onPressed: () => context.push('/notifications'),
+            tooltip: 'Notifications',
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh_outlined, size: 22),
             onPressed: () => ref.invalidate(platformsProvider),
             tooltip: 'Refresh',

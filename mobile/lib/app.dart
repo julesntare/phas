@@ -7,6 +7,7 @@ import 'features/auth/screens/otp_verify_screen.dart';
 import 'features/incidents/incident_detail_screen.dart';
 import 'features/platforms/screens/platforms_screen.dart';
 import 'features/profile/profile_screen.dart';
+import 'features/notifications/notification_history_screen.dart';
 import 'features/platforms/screens/platform_detail_screen.dart';
 import 'models/platform.dart';
 
@@ -46,6 +47,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/profile',
       builder: (_, _) => const ProfileScreen(),
+    ),
+    GoRoute(
+      path: '/notifications',
+      builder: (_, _) => const NotificationHistoryScreen(),
     ),
   ],
 );
