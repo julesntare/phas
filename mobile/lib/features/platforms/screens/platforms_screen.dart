@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,9 +17,20 @@ class _PlatformsScreenState extends ConsumerState<PlatformsScreen> {
   String _query = '';
   String? _category;
   bool _issuesOnly = false;
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => ref.invalidate(platformsProvider),
+    );
+  }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }

@@ -512,6 +512,18 @@ class _StatusCard extends StatelessWidget {
                 style: TextStyle(
                     color: color, fontWeight: FontWeight.w600)),
           ),
+          if (platform.uptime7d != null)
+            Text(
+              '${platform.uptime7d!.toStringAsFixed(1)}% uptime',
+              style: TextStyle(
+                fontSize: 12,
+                color: platform.uptime7d! >= 99
+                    ? Colors.green.shade700
+                    : platform.uptime7d! >= 95
+                        ? Colors.orange.shade700
+                        : Colors.red.shade700,
+              ),
+            ),
         ],
       ),
     );

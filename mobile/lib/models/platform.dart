@@ -6,6 +6,7 @@ class Platform {
   final String? incidentId;
   final String? state;
   final DateTime? openedAt;
+  final double? uptime7d;
 
   const Platform({
     required this.id,
@@ -15,6 +16,7 @@ class Platform {
     this.incidentId,
     this.state,
     this.openedAt,
+    this.uptime7d,
   });
 
   factory Platform.fromJson(Map<String, dynamic> j) => Platform(
@@ -24,9 +26,14 @@ class Platform {
         authorityName: j['authority_name'] as String,
         incidentId: j['incident_id'] as String?,
         state: j['state'] as String?,
-        openedAt: j['opened_at'] != null
-            ? DateTime.parse(j['opened_at'] as String)
-            : null,
+        openedAt: switch (j['opened_at']) {
+          final String s => DateTime.parse(s),
+          _ => null,
+        },
+        uptime7d: switch (j['uptime_7d']) {
+          final num n => n.toDouble(),
+          _ => null,
+        },
       );
 
   bool get hasIssue => state != null;

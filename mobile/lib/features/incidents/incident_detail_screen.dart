@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_client.dart';
@@ -21,6 +22,22 @@ class IncidentDetailScreen extends ConsumerStatefulWidget {
 
 class _IncidentDetailScreenState extends ConsumerState<IncidentDetailScreen> {
   bool _cosigning = false;
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      ref.invalidate(incidentDetailProvider(widget.incidentId));
+      ref.invalidate(incidentCommentsProvider(widget.incidentId));
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
 
   Future<void> _cosign() async {
     setState(() => _cosigning = true);

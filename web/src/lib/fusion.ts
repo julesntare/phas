@@ -1,5 +1,6 @@
 import sql from './db';
-import { dispatchNotifications } from './notifier';
+import { dispatchNotifications, dispatchResolutionFeedback } from './notifier';
+import { dispatchWebhook } from './webhook';
 
 const T = {
   openProbeFailures:   Number(process.env.FUSION_OPEN_PROBE_FAILURES   ?? 2),
@@ -135,6 +136,8 @@ async function maybeAdvanceOrClose(
       WHERE id = ${incident.id}
     `;
     await appendEvent(incident.id, incident.state, 'resolved', 'probe');
+    dispatchWebhook(platformId, incident.id, incident.state, 'resolved').catch(console.error);
+    dispatchResolutionFeedback(platformId, incident.id).catch(console.error);
     return;
   }
 
@@ -149,6 +152,7 @@ async function maybeAdvanceOrClose(
       WHERE id = ${incident.id}
     `;
     await appendEvent(incident.id, 'detected', 'confirmed', 'probe');
+    dispatchWebhook(platformId, incident.id, 'detected', 'confirmed').catch(console.error);
   }
 }
 

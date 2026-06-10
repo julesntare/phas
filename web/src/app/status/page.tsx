@@ -11,6 +11,7 @@ interface PlatformRow {
   authority_name: string;
   state: string | null;
   opened_at: string | null;
+  uptime_7d: number | null;
 }
 
 const STATE_LABEL: Record<string, string> = {
@@ -37,7 +38,8 @@ export default async function StatusPage() {
       p.category,
       a.name AS authority_name,
       i.state,
-      i.opened_at
+      i.opened_at,
+      u.uptime_7d
     FROM platforms p
     JOIN authorities a ON a.id = p.authority_id
     LEFT JOIN LATERAL (
@@ -47,6 +49,14 @@ export default async function StatusPage() {
       ORDER BY opened_at DESC
       LIMIT 1
     ) i ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT ROUND(
+        100.0 * COUNT(*) FILTER (WHERE ok = TRUE) / NULLIF(COUNT(*), 0),
+        1
+      ) AS uptime_7d
+      FROM probe_results
+      WHERE platform_id = p.id AND ran_at > NOW() - INTERVAL '7 days'
+    ) u ON TRUE
     ORDER BY p.name
   `;
 
@@ -107,7 +117,14 @@ function PlatformCard({ platform: p }: { platform: PlatformRow }) {
           {p.authority_name} · {p.category}
         </span>
       </div>
-      <span style={{ color, fontSize: '0.875rem', fontWeight: 500 }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        {p.uptime_7d != null && (
+          <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+            {p.uptime_7d}% uptime
+          </span>
+        )}
+        <span style={{ color, fontSize: '0.875rem', fontWeight: 500 }}>{label}</span>
+      </div>
     </div>
   );
 }

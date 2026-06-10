@@ -149,6 +149,36 @@ export async function dispatchOperatorUpdate(
   );
 }
 
+// Sends a "is it working now?" prompt to subscribers when an incident resolves.
+// Uses platformId in the data payload so the app deep-links to the platform page.
+export async function dispatchResolutionFeedback(
+  platformId: string,
+  incidentId: string,
+): Promise<void> {
+  const creds = await resolveServiceAccount();
+  if (!creds) return;
+
+  const [platform] = await sql<{ name: string }[]>`SELECT name FROM platforms WHERE id = ${platformId}`;
+  const platformName = platform?.name ?? 'Platform';
+
+  const tokenRows = await sql<{ token: string }[]>`
+    SELECT dt.token
+    FROM device_tokens dt
+    JOIN subscriptions s ON s.user_id = dt.user_id
+    WHERE s.platform_id = ${platformId}
+  `;
+  if (tokenRows.length === 0) return;
+
+  await sendToTokens(
+    tokenRows.map(r => r.token),
+    `✅ ${platformName} — Issue resolved`,
+    'Is it working for you now? Open the app to report.',
+    { incidentId, platformId, platformName, type: 'resolved' },
+    creds.accessToken,
+    creds.sa.project_id,
+  );
+}
+
 export async function dispatchNotifications(
   platformId: string,
   incidentId: string,

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 import { requireOperatorAuth } from '@/lib/operator-auth';
-import { dispatchOperatorUpdate } from '@/lib/notifier';
+import { dispatchOperatorUpdate, dispatchResolutionFeedback } from '@/lib/notifier';
+import { dispatchWebhook } from '@/lib/webhook';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   acknowledge:       ['detected', 'confirmed', 'recurred'],
@@ -102,6 +103,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       INSERT INTO incident_events (incident_id, from_state, to_state, source, note)
       VALUES (${id}, ${incident.state}, ${incident.state}, 'helpdesk', ${note})
     `;
+    dispatchWebhook(incident.platform_id, id, incident.state, incident.state, note).catch(console.error);
     dispatchOperatorUpdate(
       incident.platform_id, id,
       `📢 ${platformName} — Operator update`,
@@ -139,6 +141,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const copy = notifCopy[action];
   if (copy) {
     dispatchOperatorUpdate(incident.platform_id, id, copy.title, copy.body).catch(console.error);
+  }
+  dispatchWebhook(incident.platform_id, id, incident.state, newState, note || null).catch(console.error);
+  if (newState === 'resolved') {
+    dispatchResolutionFeedback(incident.platform_id, id).catch(console.error);
   }
 
   return NextResponse.json({ ok: true, newState });
