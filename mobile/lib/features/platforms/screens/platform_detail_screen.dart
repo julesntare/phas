@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/api_client.dart';
+import '../../../models/incident.dart';
 import '../../../models/platform.dart';
 import '../../../models/rwanda_locations.dart';
 import '../../auth/auth_provider.dart';
+import '../../incidents/incident_provider.dart';
 import '../../report/widgets/location_picker_widget.dart';
 
 class PlatformDetailScreen extends ConsumerStatefulWidget {
@@ -200,6 +202,8 @@ class _PlatformDetailScreenState
               const SizedBox(height: 12),
               Text(_message!, textAlign: TextAlign.center),
             ],
+            const SizedBox(height: 24),
+            _IncidentHistorySection(platformId: p.id),
           ],
         ),
       ),
@@ -397,6 +401,86 @@ class _AffectedReportSheetState
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Incident history ──────────────────────────────────────────────────────────
+
+class _IncidentHistorySection extends ConsumerWidget {
+  final String platformId;
+  const _IncidentHistorySection({required this.platformId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final history = ref.watch(platformIncidentHistoryProvider(platformId));
+    return history.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, st) => const SizedBox.shrink(),
+      data: (incidents) {
+        if (incidents.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Divider(),
+            const SizedBox(height: 4),
+            Text(
+              'Incident history',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            ...incidents.map((inc) => _IncidentHistoryRow(incident: inc)),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _IncidentHistoryRow extends StatelessWidget {
+  final PlatformIncident incident;
+  const _IncidentHistoryRow({required this.incident});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (incident.state) {
+      'resolved' => Colors.green,
+      'confirmed' || 'recurred' => Colors.red,
+      _ => Colors.orange,
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              incident.stateLabel,
+              style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w500),
+            ),
+          ),
+          if (incident.recurrenceCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Text(
+                '#${incident.recurrenceCount}',
+                style: const TextStyle(fontSize: 11, color: Colors.black45),
+              ),
+            ),
+          Text(
+            incident.durationLabel,
+            style: const TextStyle(fontSize: 12, color: Colors.black45),
+          ),
+        ],
       ),
     );
   }

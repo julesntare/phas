@@ -22,6 +22,18 @@ final incidentCommentsProvider =
       .toList();
 });
 
+// ── Platform incident history (read) ─────────────────────────────────────────
+
+final platformIncidentHistoryProvider =
+    FutureProvider.autoDispose.family<List<PlatformIncident>, String>((ref, platformId) async {
+  final data = await ref
+      .read(apiClientProvider)
+      .get('/api/platforms/$platformId/incidents');
+  return (data['incidents'] as List<dynamic>)
+      .map((i) => PlatformIncident.fromJson(i as Map<String, dynamic>))
+      .toList();
+});
+
 // ── Mutations ─────────────────────────────────────────────────────────────────
 
 final incidentActionsProvider =

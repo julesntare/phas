@@ -8,6 +8,8 @@ export default function Home() {
       <Link href="/status">View public status page</Link>
       <br />
       <Link href="/operator">Operator portal</Link>
+      <br />
+      <Link href="/regulator">Regulator portal</Link>
     </main>
   );
 }

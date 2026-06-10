@@ -57,6 +57,55 @@ class Incident {
       };
 }
 
+class PlatformIncident {
+  final String id;
+  final String state;
+  final DateTime openedAt;
+  final DateTime? closedAt;
+  final int recurrenceCount;
+
+  const PlatformIncident({
+    required this.id,
+    required this.state,
+    required this.openedAt,
+    this.closedAt,
+    required this.recurrenceCount,
+  });
+
+  factory PlatformIncident.fromJson(Map<String, dynamic> j) => PlatformIncident(
+        id: j['id'] as String,
+        state: j['state'] as String,
+        openedAt: DateTime.parse(j['opened_at'] as String),
+        closedAt: switch (j['closed_at']) {
+        final String s => DateTime.parse(s),
+        _ => null,
+      },
+        recurrenceCount: (j['recurrence_count'] as int?) ?? 0,
+      );
+
+  bool get isResolved => state == 'resolved';
+
+  Duration? get duration => closedAt?.difference(openedAt);
+
+  String get stateLabel => switch (state) {
+        'detected'           => 'Investigating',
+        'confirmed'          => 'Confirmed',
+        'acknowledged'       => 'Acknowledged',
+        'partially_resolved' => 'Partially resolved',
+        'resolved'           => 'Resolved',
+        'recurred'           => 'Recurred',
+        _                    => state,
+      };
+
+  String get durationLabel {
+    final d = duration;
+    if (d == null) return 'ongoing';
+    if (d.inMinutes < 60) return '${d.inMinutes}m';
+    if (d.inHours < 24) return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
+    return '${d.inDays}d ${d.inHours.remainder(24)}h';
+  }
+}
+
 class IncidentEvent {
   final String? fromState;
   final String toState;
