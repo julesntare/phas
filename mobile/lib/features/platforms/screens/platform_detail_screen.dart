@@ -117,93 +117,165 @@ class _PlatformDetailScreenState
     final p = widget.platform;
     return Scaffold(
       appBar: AppBar(title: Text(p.name)),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
+      body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(p.authorityName,
-                style: const TextStyle(color: Colors.black54)),
-            const SizedBox(height: 8),
-            _StatusCard(platform: p),
-            if (p.incidentId != null) ...[
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () => context.push(
-                  '/incidents/${p.incidentId}',
-                  extra: {
-                    'incidentId': p.incidentId!,
-                    'platformName': p.name,
-                  },
+            // ── Status header ──────────────────────────────────────────
+            _StatusHeader(platform: p),
+
+            // ── Active incident banner ─────────────────────────────────
+            if (p.incidentId != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: InkWell(
+                  onTap: () => context.push(
+                    '/incidents/${p.incidentId}',
+                    extra: {
+                      'incidentId': p.incidentId!,
+                      'platformName': p.name,
+                    },
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(12),
+                      border: const Border.fromBorderSide(
+                          BorderSide(color: Color(0xFFFED7AA))),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.forum_outlined,
+                            size: 18, color: Color(0xFFF97316)),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Active incident — tap to view thread',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF92400E),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.chevron_right,
+                            size: 18, color: Color(0xFFF97316)),
+                      ],
+                    ),
+                  ),
                 ),
-                icon: const Icon(Icons.forum_outlined),
-                label: const Text('View incident thread'),
               ),
-            ],
-            const SizedBox(height: 32),
-            const Text(
-              'How is it working for you right now?',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _submitting ? null : _openAffectedSheet,
-                    icon: const Icon(Icons.error_outline, color: Colors.red),
-                    label: const Text('Having issues',
-                        style: TextStyle(color: Colors.red)),
-                    style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.red)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _submitting ? null : _reportOk,
-                    icon: const Icon(Icons.check_circle_outline,
-                        color: Colors.green),
-                    label: const Text("I'm fine",
-                        style: TextStyle(color: Colors.green)),
-                    style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.green)),
-                  ),
-                ),
-              ],
-            ),
-            if (kDebugMode) ...[
-              const SizedBox(height: 24),
-              const Divider(),
-              Row(
+
+            // ── Report section ─────────────────────────────────────────
+            Container(
+              color: Colors.white,
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: TextButton.icon(
-                      onPressed: _submitting ? null : _seedIncident,
-                      icon: const Icon(Icons.science_outlined, size: 16),
-                      label: const Text('Seed incident',
-                          style: TextStyle(fontSize: 12)),
-                      style: TextButton.styleFrom(foregroundColor: Colors.grey),
+                  const Text(
+                    'How is it working for you right now?',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF374151),
                     ),
                   ),
-                  Expanded(
-                    child: TextButton.icon(
-                      onPressed: _submitting ? null : _testNotification,
-                      icon: const Icon(Icons.notifications_outlined, size: 16),
-                      label: const Text('Test notification',
-                          style: TextStyle(fontSize: 12)),
-                      style: TextButton.styleFrom(foregroundColor: Colors.grey),
-                    ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ReportButton(
+                          label: 'Having issues',
+                          icon: Icons.error_outline_rounded,
+                          color: const Color(0xFFEF4444),
+                          onTap: _submitting ? null : _openAffectedSheet,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _ReportButton(
+                          label: "I'm fine",
+                          icon: Icons.check_circle_outline_rounded,
+                          color: const Color(0xFF16A34A),
+                          onTap: _submitting ? null : _reportOk,
+                        ),
+                      ),
+                    ],
                   ),
+                  if (_message != null) ...[
+                    const SizedBox(height: 10),
+                    Text(_message!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            color: Color(0xFF6B7280), fontSize: 13)),
+                  ],
                 ],
               ),
-            ],
-            if (_message != null) ...[
-              const SizedBox(height: 12),
-              Text(_message!, textAlign: TextAlign.center),
-            ],
-            const SizedBox(height: 24),
-            _IncidentHistorySection(platformId: p.id),
+            ),
+
+            // ── Incident history ───────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+              child: _IncidentHistorySection(platformId: p.id),
+            ),
+
+            // ── Debug tools ────────────────────────────────────────────
+            if (kDebugMode)
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('DEV  ',
+                        style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFD1D5DB),
+                            letterSpacing: 1)),
+                    TextButton(
+                      onPressed: _submitting ? null : _seedIncident,
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF9CA3AF),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize:
+                            MaterialTapTargetSize.shrinkWrap,
+                        textStyle: const TextStyle(fontSize: 11),
+                      ),
+                      child: const Text('Seed incident'),
+                    ),
+                    const Text('·',
+                        style: TextStyle(
+                            color: Color(0xFFD1D5DB), fontSize: 14)),
+                    TextButton(
+                      onPressed:
+                          _submitting ? null : _testNotification,
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF9CA3AF),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize:
+                            MaterialTapTargetSize.shrinkWrap,
+                        textStyle: const TextStyle(fontSize: 11),
+                      ),
+                      child: const Text('Test notif'),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -486,45 +558,211 @@ class _IncidentHistoryRow extends StatelessWidget {
   }
 }
 
-class _StatusCard extends StatelessWidget {
+class _StatusHeader extends StatelessWidget {
   final Platform platform;
-  const _StatusCard({required this.platform});
+  const _StatusHeader({required this.platform});
 
   @override
   Widget build(BuildContext context) {
     final hasIssue = platform.hasIssue;
-    final color = hasIssue ? Colors.red : Colors.green;
+    final statusColor =
+        hasIssue ? const Color(0xFFEF4444) : const Color(0xFF16A34A);
+
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withAlpha(13),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withAlpha(77)),
-      ),
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(
-              hasIssue ? Icons.warning_amber_rounded : Icons.check_circle,
-              color: color),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(platform.statusLabel,
-                style: TextStyle(
-                    color: color, fontWeight: FontWeight.w600)),
-          ),
+          // ── Uptime circle (reference-style circular indicator) ─────────
           if (platform.uptime7d != null)
-            Text(
-              '${platform.uptime7d!.toStringAsFixed(1)}% uptime',
-              style: TextStyle(
-                fontSize: 12,
-                color: platform.uptime7d! >= 99
-                    ? Colors.green.shade700
-                    : platform.uptime7d! >= 95
-                        ? Colors.orange.shade700
-                        : Colors.red.shade700,
-              ),
+            _UptimeRing(uptime: platform.uptime7d!)
+          else
+            _StatusCircle(hasIssue: hasIssue, color: statusColor),
+          const SizedBox(width: 20),
+
+          // ── Info ──────────────────────────────────────────────────────
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // State pill
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withAlpha(15),
+                    borderRadius: BorderRadius.circular(20),
+                    border:
+                        Border.all(color: statusColor.withAlpha(60)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                            color: statusColor,
+                            shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        platform.statusLabel,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  platform.authorityName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  platform.category,
+                  style: const TextStyle(
+                      fontSize: 12, color: Color(0xFF9CA3AF)),
+                ),
+              ],
             ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _UptimeRing extends StatelessWidget {
+  final double uptime;
+  const _UptimeRing({required this.uptime});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = uptime >= 99
+        ? const Color(0xFF16A34A)
+        : uptime >= 95
+            ? const Color(0xFFF97316)
+            : const Color(0xFFEF4444);
+    return SizedBox(
+      width: 76,
+      height: 76,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            width: 76,
+            height: 76,
+            child: CircularProgressIndicator(
+              value: uptime / 100,
+              strokeWidth: 6,
+              backgroundColor: color.withAlpha(20),
+              color: color,
+              strokeCap: StrokeCap.round,
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${uptime.toStringAsFixed(0)}%',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
+              ),
+              Text(
+                'uptime',
+                style: TextStyle(
+                    fontSize: 9, color: color.withAlpha(160)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusCircle extends StatelessWidget {
+  final bool hasIssue;
+  final Color color;
+  const _StatusCircle(
+      {required this.hasIssue, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 76,
+      height: 76,
+      decoration: BoxDecoration(
+        color: color.withAlpha(15),
+        shape: BoxShape.circle,
+        border: Border.all(color: color.withAlpha(60), width: 2),
+      ),
+      child: Icon(
+        hasIssue
+            ? Icons.warning_amber_rounded
+            : Icons.check_circle_rounded,
+        color: color,
+        size: 32,
+      ),
+    );
+  }
+}
+
+class _ReportButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const _ReportButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color.withAlpha(15),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withAlpha(60)),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 24),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

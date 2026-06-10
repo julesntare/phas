@@ -85,6 +85,48 @@ class _PhasAppState extends State<PhasApp> {
       theme: ThemeData(
         colorSchemeSeed: const Color(0xFF0055A4),
         useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFF8F9FB),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: Color(0xFF111827),
+          elevation: 0,
+          scrolledUnderElevation: 1,
+          surfaceTintColor: Colors.white,
+          titleTextStyle: TextStyle(
+            color: Color(0xFF111827),
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        cardTheme: CardThemeData(
+          elevation: 0,
+          color: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFFE5E7EB)),
+          ),
+          margin: EdgeInsets.zero,
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        ),
+        dividerTheme: const DividerThemeData(
+          color: Color(0xFFE5E7EB),
+          space: 1,
+          thickness: 1,
+        ),
       ),
     );
   }

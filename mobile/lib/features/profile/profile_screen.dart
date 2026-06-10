@@ -5,7 +5,6 @@ import '../../models/rwanda_locations.dart';
 import '../../models/user.dart';
 import '../auth/auth_provider.dart';
 
-// All 30 districts as a flat sorted list for the dropdown.
 final _allDistricts = rwandaProvinceDistricts.values
     .expand((d) => d)
     .toList()
@@ -57,7 +56,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Sign out?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Sign out?',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+        content: const Text('You\'ll need to verify your phone number again.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -65,6 +67,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Sign out'),
           ),
         ],
@@ -84,79 +87,196 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         title: const Text('Profile'),
         actions: [
           if (_dirty)
-            TextButton(
-              onPressed: _saving ? null : _save,
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
               child: _saving
-                  ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Save'),
+                  ? const Center(
+                      child: SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : FilledButton(
+                      onPressed: _save,
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      child: const Text('Save'),
+                    ),
             ),
         ],
       ),
       body: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.cloud_off_outlined,
+                    size: 48, color: Color(0xFFD1D5DB)),
+                const SizedBox(height: 12),
+                Text('$e',
+                    style: const TextStyle(
+                        color: Color(0xFF6B7280), fontSize: 13),
+                    textAlign: TextAlign.center),
+              ],
+            ),
+          ),
+        ),
         data: (user) {
-          // Initialise dropdown on first data load.
           _selectedDistrict ??= user.district;
-
           return ListView(
-            padding: const EdgeInsets.all(24),
             children: [
-              // Phone (read-only)
-              _InfoRow(label: 'Phone', value: user.phone),
-              const SizedBox(height: 24),
-
-              // District
-              const Text('Your district',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              InputDecorator(
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-                child: DropdownButton<String>(
-                  value: _selectedDistrict,
-                  isExpanded: true,
-                  underline: const SizedBox.shrink(),
-                  hint: const Text('Select district'),
-                  items: [
-                    const DropdownMenuItem(
-                        value: null, child: Text('— Not set —')),
-                    ..._allDistricts.map(
-                      (d) => DropdownMenuItem(value: d, child: Text(d)),
+              // ── Avatar header ──────────────────────────────────────────
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0055A4).withAlpha(15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: const Color(0xFF0055A4).withAlpha(40)),
+                      ),
+                      child: const Icon(Icons.person_outline_rounded,
+                          size: 30, color: Color(0xFF0055A4)),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Citizen',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF111827),
+                              )),
+                          const SizedBox(height: 3),
+                          Text(user.phone,
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF6B7280))),
+                          if (user.district != null) ...[
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                const Icon(Icons.location_on_outlined,
+                                    size: 12,
+                                    color: Color(0xFF9CA3AF)),
+                                const SizedBox(width: 3),
+                                Text(user.district!,
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF9CA3AF))),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ],
-                  onChanged: (val) => setState(() {
-                    _selectedDistrict = val;
-                    _dirty = val != user.district;
-                  }),
                 ),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Used to show relevant reports in your area.',
-                style: TextStyle(fontSize: 12, color: Colors.black45),
+              const Divider(),
+
+              // ── Section: Account ───────────────────────────────────────
+              const _SectionHeader(title: 'Account'),
+              _SettingsTile(
+                icon: Icons.phone_outlined,
+                label: 'Phone number',
+                value: user.phone,
               ),
 
-              const SizedBox(height: 40),
+              const Divider(),
+
+              // ── Section: Location ──────────────────────────────────────
+              const _SectionHeader(title: 'Location'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Your district',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF374151)),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFD1D5DB)),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                      child: DropdownButton<String>(
+                        value: _selectedDistrict,
+                        isExpanded: true,
+                        underline: const SizedBox.shrink(),
+                        hint: const Text('Select your district',
+                            style: TextStyle(color: Color(0xFF9CA3AF))),
+                        items: [
+                          const DropdownMenuItem(
+                              value: null,
+                              child: Text('— Not set —',
+                                  style:
+                                      TextStyle(color: Color(0xFF9CA3AF)))),
+                          ..._allDistricts.map(
+                            (d) => DropdownMenuItem(
+                                value: d, child: Text(d)),
+                          ),
+                        ],
+                        onChanged: (val) => setState(() {
+                          _selectedDistrict = val;
+                          _dirty = val != user.district;
+                        }),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Used to show relevant incident reports in your area.',
+                      style: TextStyle(
+                          fontSize: 12, color: Color(0xFF9CA3AF)),
+                    ),
+                  ],
+                ),
+              ),
+
               const Divider(),
               const SizedBox(height: 8),
 
-              OutlinedButton.icon(
-                onPressed: _confirmSignOut,
-                icon: const Icon(Icons.logout, color: Colors.red),
-                label: const Text('Sign out',
-                    style: TextStyle(color: Colors.red)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red),
+              // ── Sign out ───────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: OutlinedButton.icon(
+                  onPressed: _confirmSignOut,
+                  icon: const Icon(Icons.logout_rounded,
+                      size: 18, color: Colors.red),
+                  label: const Text('Sign out',
+                      style: TextStyle(color: Colors.red,
+                          fontWeight: FontWeight.w600)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: Color(0xFFFECACA)),
+                    backgroundColor: const Color(0xFFFFF5F5),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
               ),
+              const SizedBox(height: 32),
             ],
           );
         },
@@ -165,30 +285,71 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 }
 
-class _InfoRow extends StatelessWidget {
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+        child: Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF9CA3AF),
+            letterSpacing: 0.8,
+          ),
+        ),
+      );
+}
+
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
   final String label;
   final String value;
-  const _InfoRow({required this.label, required this.value});
+
+  const _SettingsTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, size: 18, color: const Color(0xFF6B7280)),
           ),
-          child: Text(value, style: const TextStyle(color: Colors.black54)),
-        ),
-      ],
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xFF9CA3AF))),
+                const SizedBox(height: 1),
+                Text(value,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF111827))),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

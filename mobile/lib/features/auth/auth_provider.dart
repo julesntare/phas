@@ -36,6 +36,7 @@ class AuthNotifier extends AsyncNotifier<User?> {
       NotificationService.registerToken(_api).catchError((_) {});
     } catch (e, st) {
       state = AsyncError(e, st);
+      rethrow;
     }
   }
 
