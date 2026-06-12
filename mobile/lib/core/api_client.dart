@@ -6,8 +6,7 @@ class ApiClient {
   // Update to your Vercel deployment URL for production.
   static const String _baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue:
-        'https://phas-three.vercel.app', // Android emulator → localhost
+    defaultValue: 'https://phas-three.vercel.app',
   );
 
   final _client = http.Client();

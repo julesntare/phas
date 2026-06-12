@@ -160,7 +160,7 @@ class _PlatformsScreenState extends ConsumerState<PlatformsScreen> {
                             style: TextStyle(
                               fontSize: 11,
                               color: allOk
-                                  ? const Color(0xFF4ADE80)
+                                  ? const Color(0xFF15803D)
                                   : const Color(0xFFFBBF24),
                             ),
                           ),

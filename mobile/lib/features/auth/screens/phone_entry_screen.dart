@@ -76,8 +76,15 @@ class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: Colors.white.withAlpha(60)),
                     ),
-                    child: const Icon(Icons.shield_outlined,
-                        color: Colors.white, size: 30),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.asset(
+                        'assets/icon/phas-icon.png',
+                        width: 62,
+                        height: 62,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 32),
 
