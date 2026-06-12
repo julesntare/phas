@@ -49,12 +49,20 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   flutter_native_splash: ^2.4.3
+  flutter_launcher_icons: ^0.14.4
 
 flutter_native_splash:
   color: "#0055A4"
   android_12:
     color: "#0055A4"
   fullscreen: false
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/phas-icon.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true   # iOS rejects alpha channels
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
