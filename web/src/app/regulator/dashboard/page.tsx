@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 interface Summary {
   total_platforms: string; platforms_with_issues: string;
@@ -100,11 +101,7 @@ export default function RegulatorDashboard() {
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-linear-to-br from-brand-light to-brand-dark flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
+            <Image src="/phas-icon.png" alt="PHAS" width={28} height={28} className="rounded-lg" />
             <div>
               <p className="text-sm font-bold text-gray-900 leading-none">Regulator Portal</p>
               {regulatorName && <p className="text-xs text-gray-400 leading-none mt-0.5">{regulatorName}</p>}
