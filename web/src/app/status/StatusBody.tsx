@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import ReportModal from './ReportModal';
 
 interface IncidentSummary {
   id: string; state: string; opened_at: string; closed_at: string | null;
@@ -58,6 +59,7 @@ export default function StatusBody({ platforms }: { platforms: PlatformRow[] }) 
   const [tab,      setTab]      = useState<'issues' | 'operational'>(issues.length > 0 ? 'issues' : 'operational');
   const [search,   setSearch]   = useState('');
   const [category, setCategory] = useState('');
+  const [reportTarget, setReportTarget] = useState<{ id: string; name: string } | null>(null);
 
   const categories = useMemo(
     () => [...new Set(platforms.map(p => p.category))].sort(),
@@ -202,14 +204,24 @@ export default function StatusBody({ platforms }: { platforms: PlatformRow[] }) 
         </div>
       ) : (
         <div className="space-y-2">
-          {displayed.map(p => <PlatformCard key={p.id} platform={p} />)}
+          {displayed.map(p => (
+            <PlatformCard key={p.id} platform={p} onReport={() => setReportTarget({ id: p.id, name: p.name })} />
+          ))}
         </div>
+      )}
+
+      {reportTarget && (
+        <ReportModal
+          platformId={reportTarget.id}
+          platformName={reportTarget.name}
+          onClose={() => setReportTarget(null)}
+        />
       )}
     </>
   );
 }
 
-function PlatformCard({ platform: p }: { platform: PlatformRow }) {
+function PlatformCard({ platform: p, onReport }: { platform: PlatformRow; onReport: () => void }) {
   const now = new Date();
   const mw = p.maintenance;
   const isUnderMaintenance = mw ? new Date(mw.starts_at) <= now : false;
@@ -306,6 +318,19 @@ function PlatformCard({ platform: p }: { platform: PlatformRow }) {
           </div>
         </details>
       )}
+
+      <div className="border-t border-gray-50">
+        <button
+          onClick={onReport}
+          className="w-full flex items-center gap-1.5 px-4 py-2 text-xs text-gray-400 hover:text-brand hover:bg-gray-50/70 transition-colors"
+        >
+          <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M3 21l1.9-5.7a8.5 8.5 0 113.8 3.8z" />
+          </svg>
+          Report issue
+        </button>
+      </div>
     </div>
   );
 }
