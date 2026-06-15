@@ -1,24 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
-import { requireOperatorAuth, hashPassword, verifyPassword } from '@/lib/operator-auth';
+import { requireRegulatorAuth } from '@/lib/regulator-auth';
+import { hashPassword, verifyPassword } from '@/lib/operator-auth';
 
 export async function GET(req: NextRequest) {
-  let op;
-  try { op = await requireOperatorAuth(req.headers.get('authorization')); }
+  let reg;
+  try { reg = await requireRegulatorAuth(req.headers.get('authorization')); }
   catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
 
   const [row] = await sql<{
     id: string; email: string; name: string | null; avatar_url: string | null;
-    platform_id: string; platform_name: string; category: string;
-    base_url: string; authority_name: string;
+    authority_id: string | null; authority_name: string | null;
   }[]>`
-    SELECT h.id, h.email, h.name, h.avatar_url,
-           p.id AS platform_id, p.name AS platform_name, p.category, p.base_url,
-           a.name AS authority_name
-    FROM help_desk_accounts h
-    JOIN platforms p ON p.id = h.platform_id
-    JOIN authorities a ON a.id = p.authority_id
-    WHERE h.id = ${op.sub}
+    SELECT r.id, r.email, r.name, r.avatar_url, r.authority_id, a.name AS authority_name
+    FROM regulator_accounts r
+    LEFT JOIN authorities a ON a.id = r.authority_id
+    WHERE r.id = ${reg.sub}
   `;
 
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -28,19 +25,14 @@ export async function GET(req: NextRequest) {
     email: row.email,
     name: row.name,
     avatarUrl: row.avatar_url,
-    platform: {
-      id: row.platform_id,
-      name: row.platform_name,
-      category: row.category,
-      base_url: row.base_url,
-      authority_name: row.authority_name,
-    },
+    authorityId: row.authority_id,
+    authorityName: row.authority_name,
   });
 }
 
 export async function PATCH(req: NextRequest) {
-  let op;
-  try { op = await requireOperatorAuth(req.headers.get('authorization')); }
+  let reg;
+  try { reg = await requireRegulatorAuth(req.headers.get('authorization')); }
   catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
 
   const body = await req.json().catch(() => null);
@@ -52,7 +44,7 @@ export async function PATCH(req: NextRequest) {
 
   if (name !== undefined) {
     if (!name) return NextResponse.json({ error: 'name cannot be empty' }, { status: 400 });
-    await sql`UPDATE help_desk_accounts SET name = ${name} WHERE id = ${op.sub}`;
+    await sql`UPDATE regulator_accounts SET name = ${name} WHERE id = ${reg.sub}`;
   }
 
   if (newPassword !== undefined) {
@@ -60,12 +52,12 @@ export async function PATCH(req: NextRequest) {
     if (newPassword.length < 8) return NextResponse.json({ error: 'New password must be at least 8 characters' }, { status: 400 });
 
     const [account] = await sql<{ password_hash: string | null }[]>`
-      SELECT password_hash FROM help_desk_accounts WHERE id = ${op.sub}
+      SELECT password_hash FROM regulator_accounts WHERE id = ${reg.sub}
     `;
     if (!account?.password_hash || !verifyPassword(currentPassword, account.password_hash)) {
       return NextResponse.json({ error: 'Current password is incorrect' }, { status: 403 });
     }
-    await sql`UPDATE help_desk_accounts SET password_hash = ${hashPassword(newPassword)} WHERE id = ${op.sub}`;
+    await sql`UPDATE regulator_accounts SET password_hash = ${hashPassword(newPassword)} WHERE id = ${reg.sub}`;
   }
 
   return NextResponse.json({ ok: true });

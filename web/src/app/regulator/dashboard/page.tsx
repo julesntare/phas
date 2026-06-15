@@ -89,7 +89,12 @@ function formatHours(h: number): string {
   return rem > 0 ? `${mo}mo ${rem}w` : `${mo}mo`;
 }
 
-type Tab = 'overview' | 'platforms' | 'trend';
+type Tab = 'overview' | 'platforms' | 'trend' | 'profile';
+
+interface RegProfile {
+  id: string; email: string; name: string | null; avatarUrl: string | null;
+  authorityId: string | null; authorityName: string | null;
+}
 
 export default function RegulatorDashboard() {
   const router = useRouter();
@@ -108,6 +113,22 @@ export default function RegulatorDashboard() {
   const [trend, setTrend] = useState<TrendData | null>(null);
   const [trendLoading, setTrendLoading] = useState(false);
   const [trendLoaded, setTrendLoaded] = useState(false);
+
+  // Profile tab
+  const [profile, setProfile] = useState<RegProfile | null>(null);
+  const [profLoading, setProfLoading] = useState(false);
+  const [profLoaded, setProfLoaded] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [nameSaving, setNameSaving] = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
 
   function getToken() { return localStorage.getItem('regulator_token'); }
 
@@ -143,10 +164,71 @@ export default function RegulatorDashboard() {
       .finally(() => setTrendLoading(false));
   }, [trendLoaded]);
 
+  const loadProfile = useCallback(() => {
+    if (profLoaded) return;
+    setProfLoading(true);
+    fetch('/api/regulator/profile', { headers: { Authorization: `Bearer ${getToken()}` } })
+      .then(r => r.json())
+      .then(d => { if (d.email) { setProfile(d); setEditName(d.name ?? ''); setProfLoaded(true); } })
+      .catch(() => {})
+      .finally(() => setProfLoading(false));
+  }, [profLoaded]);
+
   useEffect(() => {
     if (tab === 'platforms') loadPlatforms();
     if (tab === 'trend') loadTrend();
-  }, [tab, loadPlatforms, loadTrend]);
+    if (tab === 'profile') loadProfile();
+  }, [tab, loadPlatforms, loadTrend, loadProfile]);
+
+  async function saveName() {
+    if (!editName.trim()) return;
+    setNameSaving(true);
+    await fetch('/api/regulator/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({ name: editName }),
+    });
+    setRegulatorName(editName);
+    setProfile(p => p ? { ...p, name: editName } : p);
+    const info = localStorage.getItem('regulator_info');
+    if (info) localStorage.setItem('regulator_info', JSON.stringify({ ...JSON.parse(info), name: editName }));
+    setEditingName(false);
+    setNameSaving(false);
+  }
+
+  async function changePassword() {
+    setPwError(''); setPwSuccess(false);
+    if (newPw !== confirmPw) { setPwError('Passwords do not match'); return; }
+    if (newPw.length < 8) { setPwError('Must be at least 8 characters'); return; }
+    setPwSaving(true);
+    const res = await fetch('/api/regulator/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({ current_password: currentPw, new_password: newPw }),
+    });
+    const data = await res.json();
+    if (!res.ok) { setPwError(data.error ?? 'Failed'); }
+    else { setPwSuccess(true); setCurrentPw(''); setNewPw(''); setConfirmPw(''); }
+    setPwSaving(false);
+  }
+
+  async function uploadAvatar(file: File) {
+    setAvatarUploading(true); setAvatarError('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/regulator/avatar', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Upload failed');
+      setProfile(p => p ? { ...p, avatarUrl: data.url } : p);
+    } catch (e: unknown) {
+      setAvatarError(e instanceof Error ? e.message : 'Upload failed');
+    } finally { setAvatarUploading(false); }
+  }
 
   function signOut() {
     localStorage.removeItem('regulator_token');
@@ -177,6 +259,7 @@ export default function RegulatorDashboard() {
     { key: 'overview',  label: 'Overview' },
     { key: 'platforms', label: 'Platforms' },
     { key: 'trend',     label: 'Trend' },
+    { key: 'profile',   label: 'Profile' },
   ];
 
   return (
@@ -191,10 +274,16 @@ export default function RegulatorDashboard() {
               {regulatorName && <p className="text-xs text-gray-400 leading-none mt-0.5">{regulatorName}</p>}
             </div>
           </div>
-          <button onClick={signOut}
-            className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
-            Sign out
-          </button>
+          <div className="flex items-center gap-3">
+            {profile?.avatarUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.avatarUrl} alt="avatar" className="w-8 h-8 rounded-full object-cover border border-gray-200" />
+            )}
+            <button onClick={signOut}
+              className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+              Sign out
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -531,6 +620,108 @@ export default function RegulatorDashboard() {
                       })}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Profile tab ─────────────────────────────────────────────────── */}
+        {tab === 'profile' && (
+          <>
+            {profLoading && (
+              <div className="flex justify-center py-20">
+                <div className="w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+            {profile && (
+              <div className="space-y-5 max-w-lg">
+                {/* Identity card */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <h2 className="text-sm font-bold text-gray-700 mb-5">Account</h2>
+                  <div className="space-y-4">
+                    {/* Avatar */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-2">Logo / Avatar</label>
+                      <div className="flex items-center gap-4">
+                        {profile.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={profile.avatarUrl} alt="avatar" className="w-14 h-14 rounded-xl object-cover border border-gray-200" />
+                        ) : (
+                          <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center text-2xl text-gray-400">
+                            {(profile.name ?? profile.email)[0]?.toUpperCase()}
+                          </div>
+                        )}
+                        <label className={`cursor-pointer px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors ${avatarUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                          {avatarUploading ? 'Uploading…' : 'Change'}
+                          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                            onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = ''; }} />
+                        </label>
+                      </div>
+                      {avatarError && <p className="text-xs text-red-600 mt-1.5">{avatarError}</p>}
+                    </div>
+                    {/* Name */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1.5">Display name</label>
+                      {editingName ? (
+                        <div className="flex gap-2">
+                          <input value={editName} onChange={e => setEditName(e.target.value)}
+                            className="flex-1 px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition" />
+                          <button onClick={saveName} disabled={nameSaving}
+                            className="px-4 py-2 bg-brand text-white text-sm font-semibold rounded-xl hover:bg-brand-dark disabled:opacity-50 transition-colors">
+                            {nameSaving ? '…' : 'Save'}
+                          </button>
+                          <button onClick={() => { setEditingName(false); setEditName(profile.name ?? ''); }}
+                            className="px-4 py-2 text-gray-500 text-sm font-semibold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-gray-800">{profile.name ?? <span className="text-gray-400 italic">Not set</span>}</p>
+                          <button onClick={() => setEditingName(true)}
+                            className="text-xs text-brand font-semibold hover:text-brand-dark transition-colors">
+                            Edit
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {/* Email */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1.5">Email</label>
+                      <p className="text-sm text-gray-500">{profile.email}</p>
+                    </div>
+                    {profile.authorityName && (
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 mb-1.5">Authority</label>
+                        <p className="text-sm text-gray-500">{profile.authorityName}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Change password */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <h2 className="text-sm font-bold text-gray-700 mb-5">Change password</h2>
+                  <div className="space-y-3">
+                    {[
+                      { label: 'Current password', value: currentPw, setter: setCurrentPw },
+                      { label: 'New password',     value: newPw,     setter: setNewPw },
+                      { label: 'Confirm new',      value: confirmPw, setter: setConfirmPw },
+                    ].map(({ label, value, setter }) => (
+                      <div key={label}>
+                        <label className="block text-xs font-semibold text-gray-500 mb-1.5">{label}</label>
+                        <input type="password" value={value} onChange={e => setter(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition" />
+                      </div>
+                    ))}
+                    {pwError && <p className="text-xs text-red-600">{pwError}</p>}
+                    {pwSuccess && <p className="text-xs text-green-600">Password updated successfully.</p>}
+                    <button onClick={changePassword} disabled={pwSaving || !currentPw || !newPw || !confirmPw}
+                      className="w-full py-2.5 bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors">
+                      {pwSaving ? 'Updating…' : 'Update password'}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

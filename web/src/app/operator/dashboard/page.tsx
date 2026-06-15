@@ -25,7 +25,7 @@ interface HealthData {
   incidents: { resolved: number; active: number };
 }
 interface Profile {
-  id: string; name: string | null; email: string;
+  id: string; name: string | null; email: string; avatarUrl: string | null;
   platform: { id: string; name: string; category: string; base_url: string; authority_name: string };
 }
 
@@ -115,6 +115,8 @@ export default function OperatorDashboard() {
   const [pwSaving, setPwSaving] = useState(false);
   const [pwError, setPwError] = useState('');
   const [pwSuccess, setPwSuccess] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
 
   function getToken() { return localStorage.getItem('operator_token'); }
 
@@ -159,6 +161,24 @@ export default function OperatorDashboard() {
       .catch(() => {})
       .finally(() => setProfLoading(false));
   }, [profLoaded]);
+
+  async function uploadAvatar(file: File) {
+    setAvatarUploading(true); setAvatarError('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/operator/avatar', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Upload failed');
+      setProfile(p => p ? { ...p, avatarUrl: data.url } : p);
+    } catch (e: unknown) {
+      setAvatarError(e instanceof Error ? e.message : 'Upload failed');
+    } finally { setAvatarUploading(false); }
+  }
 
   function loadMaintenance() {
     setMwLoading(true); setMwError('');
@@ -262,10 +282,16 @@ export default function OperatorDashboard() {
               {operatorName && <p className="text-xs text-gray-400 leading-none mt-0.5">{operatorName}</p>}
             </div>
           </div>
-          <button onClick={signOut}
-            className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
-            Sign out
-          </button>
+          <div className="flex items-center gap-3">
+            {profile?.avatarUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.avatarUrl} alt="avatar" className="w-8 h-8 rounded-full object-cover border border-gray-200" />
+            )}
+            <button onClick={signOut}
+              className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+              Sign out
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -572,6 +598,26 @@ export default function OperatorDashboard() {
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                   <h2 className="text-sm font-bold text-gray-700 mb-5">Account</h2>
                   <div className="space-y-4">
+                    {/* Avatar */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-2">Logo / Avatar</label>
+                      <div className="flex items-center gap-4">
+                        {profile.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={profile.avatarUrl} alt="avatar" className="w-14 h-14 rounded-xl object-cover border border-gray-200" />
+                        ) : (
+                          <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center text-2xl text-gray-400">
+                            {(profile.name ?? profile.email)[0]?.toUpperCase()}
+                          </div>
+                        )}
+                        <label className={`cursor-pointer px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors ${avatarUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                          {avatarUploading ? 'Uploading…' : 'Change'}
+                          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                            onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = ''; }} />
+                        </label>
+                      </div>
+                      {avatarError && <p className="text-xs text-red-600 mt-1.5">{avatarError}</p>}
+                    </div>
                     {/* Name */}
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 mb-1.5">Display name</label>

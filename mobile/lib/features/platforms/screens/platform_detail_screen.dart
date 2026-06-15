@@ -574,8 +574,14 @@ class _StatusHeader extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // ── Uptime circle (reference-style circular indicator) ─────────
-          if (platform.uptime7d != null)
+          // ── Operator logo / uptime ring / status circle ───────────────
+          if (platform.operatorAvatarUrl != null)
+            _OperatorLogo(
+              url: platform.operatorAvatarUrl!,
+              uptime: platform.uptime7d,
+              color: statusColor,
+            )
+          else if (platform.uptime7d != null)
             _UptimeRing(uptime: platform.uptime7d!)
           else
             _StatusCircle(hasIssue: hasIssue, color: statusColor),
@@ -634,6 +640,53 @@ class _StatusHeader extends StatelessWidget {
                       fontSize: 12, color: Color(0xFF9CA3AF)),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OperatorLogo extends StatelessWidget {
+  final String url;
+  final double? uptime;
+  final Color color;
+  const _OperatorLogo({required this.url, required this.uptime, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 76,
+      height: 76,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          if (uptime != null)
+            SizedBox(
+              width: 76,
+              height: 76,
+              child: CircularProgressIndicator(
+                value: uptime! / 100,
+                strokeWidth: 5,
+                backgroundColor: color.withAlpha(20),
+                color: color,
+                strokeCap: StrokeCap.round,
+              ),
+            ),
+          Container(
+            width: uptime != null ? 58 : 76,
+            height: uptime != null ? 58 : 76,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: color.withAlpha(50), width: 1.5),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Image.network(
+              url,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Icon(Icons.business_outlined,
+                  size: 28, color: color),
             ),
           ),
         ],

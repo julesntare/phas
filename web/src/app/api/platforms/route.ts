@@ -8,6 +8,7 @@ export async function GET() {
     name: string;
     category: string;
     authority_name: string;
+    operator_avatar_url: string | null;
     incident_id: string | null;
     state: string | null;
     opened_at: string | null;
@@ -18,12 +19,18 @@ export async function GET() {
       p.name,
       p.category,
       a.name AS authority_name,
+      op.avatar_url AS operator_avatar_url,
       i.incident_id,
       i.state,
       i.opened_at,
       u.uptime_7d
     FROM platforms p
     JOIN authorities a ON a.id = p.authority_id
+    LEFT JOIN LATERAL (
+      SELECT avatar_url FROM help_desk_accounts
+      WHERE platform_id = p.id AND avatar_url IS NOT NULL
+      LIMIT 1
+    ) op ON TRUE
     LEFT JOIN LATERAL (
       SELECT id AS incident_id, state, opened_at
       FROM incidents

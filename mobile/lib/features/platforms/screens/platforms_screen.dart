@@ -350,16 +350,27 @@ class _PlatformTile extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            // Category icon circle
+            // Operator logo or category icon
             Container(
               width: 42,
               height: 42,
               decoration: BoxDecoration(
                 color: statusColor.withAlpha(20),
                 borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: statusColor.withAlpha(30)),
               ),
-              child: Icon(_categoryIcon(platform.category),
-                  size: 20, color: statusColor),
+              clipBehavior: Clip.antiAlias,
+              child: platform.operatorAvatarUrl != null
+                  ? Image.network(
+                      platform.operatorAvatarUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Icon(
+                        _categoryIcon(platform.category),
+                        size: 20, color: statusColor,
+                      ),
+                    )
+                  : Icon(_categoryIcon(platform.category),
+                      size: 20, color: statusColor),
             ),
             const SizedBox(width: 12),
             // Name + authority
