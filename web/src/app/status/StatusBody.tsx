@@ -16,6 +16,7 @@ export interface PlatformRow {
   opened_at: string | null; uptime_7d: number | null;
   history: IncidentSummary[] | null;
   maintenance: MaintenanceInfo | null;
+  operator_avatar_url: string | null;
 }
 
 const STATE_LABEL: Record<string, string> = {
@@ -238,11 +239,24 @@ function PlatformCard({ platform: p, onReport }: { platform: PlatformRow; onRepo
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="px-4 py-3.5 flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className="font-semibold text-gray-900 text-sm truncate">{p.name}</p>
-          <p className="text-xs text-gray-400 mt-0.5">
-            {p.authority_name} · {CATEGORY_LABEL[p.category] ?? p.category}
-          </p>
+        <div className="flex items-center gap-3 min-w-0">
+          {p.operator_avatar_url ? (
+            <img
+              src={p.operator_avatar_url}
+              alt={p.name}
+              className="w-8 h-8 rounded-lg object-cover shrink-0 border border-gray-100"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 text-xs font-bold text-gray-400">
+              {p.name[0]}
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="font-semibold text-gray-900 text-sm truncate">{p.name}</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {p.authority_name} · {CATEGORY_LABEL[p.category] ?? p.category}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {p.uptime_7d != null && (

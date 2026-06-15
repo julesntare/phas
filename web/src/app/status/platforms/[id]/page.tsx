@@ -40,9 +40,15 @@ export default async function PlatformHistoryPage({ params }: { params: Promise<
   const { id } = await params;
 
   const [platformRows, incidentRows, uptimeRows] = await Promise.all([
-    sql<{ name: string; category: string; authority_name: string }[]>`
-      SELECT p.name, p.category, a.name AS authority_name
-      FROM platforms p JOIN authorities a ON a.id = p.authority_id
+    sql<{ name: string; category: string; authority_name: string; operator_avatar_url: string | null }[]>`
+      SELECT p.name, p.category, a.name AS authority_name, op.avatar_url AS operator_avatar_url
+      FROM platforms p
+      JOIN authorities a ON a.id = p.authority_id
+      LEFT JOIN LATERAL (
+        SELECT avatar_url FROM help_desk_accounts
+        WHERE platform_id = p.id AND avatar_url IS NOT NULL
+        LIMIT 1
+      ) op ON TRUE
       WHERE p.id = ${id}
     `,
     sql<IncidentRow[]>`
@@ -94,9 +100,22 @@ export default async function PlatformHistoryPage({ params }: { params: Promise<
         {/* Platform header */}
         <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <h1 className="text-xl font-extrabold text-gray-900">{platform.name}</h1>
-              <p className="text-sm text-gray-500 mt-1">{platform.authority_name} · {platform.category}</p>
+            <div className="flex items-center gap-4 min-w-0">
+              {platform.operator_avatar_url ? (
+                <img
+                  src={platform.operator_avatar_url}
+                  alt={platform.name}
+                  className="w-14 h-14 rounded-xl object-cover shrink-0 border border-gray-100"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center shrink-0 text-xl font-bold text-gray-400">
+                  {platform.name[0]}
+                </div>
+              )}
+              <div className="min-w-0">
+                <h1 className="text-xl font-extrabold text-gray-900">{platform.name}</h1>
+                <p className="text-sm text-gray-500 mt-1">{platform.authority_name} · {platform.category}</p>
+              </div>
             </div>
             <div className="flex gap-6">
               {uptime.uptime_7d != null && (
