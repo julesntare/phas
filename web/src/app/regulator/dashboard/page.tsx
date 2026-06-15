@@ -222,12 +222,14 @@ export default function RegulatorDashboard() {
                 { label: 'Active incidents',   value: summary.active_incidents,      icon: '🔴', accent: 'text-orange-600', bg: 'bg-orange-50' },
                 { label: 'Resolved this week', value: summary.resolved_this_week,    icon: '✅', accent: 'text-green-700', bg: 'bg-green-50'  },
               ].map(({ label, value, icon, accent, bg }) => (
-                <div key={label} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                  <div className={`w-9 h-9 ${bg} rounded-xl flex items-center justify-center text-lg mb-3`}>
+                <div key={label} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex items-center gap-4">
+                  <div className={`w-14 h-14 ${bg} rounded-2xl flex items-center justify-center text-3xl shrink-0`}>
                     {icon}
                   </div>
-                  <p className={`text-3xl font-extrabold ${accent}`}>{value}</p>
-                  <p className="text-xs text-gray-400 mt-1 font-medium">{label}</p>
+                  <div>
+                    <p className={`text-3xl font-extrabold ${accent}`}>{value}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 font-medium">{label}</p>
+                  </div>
                 </div>
               ))}
             </div>
