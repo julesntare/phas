@@ -38,7 +38,7 @@ class _PlatformsScreenState extends ConsumerState<PlatformsScreen> {
   final _searchCtrl = TextEditingController();
   String _query = '';
   String? _category;
-  bool _issuesOnly = false;
+  bool _issuesOnly = true;
   Timer? _refreshTimer;
 
   @override
