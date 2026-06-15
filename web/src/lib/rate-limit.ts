@@ -14,17 +14,14 @@ export async function isRateLimited(
   return Number(count) >= maxRequests;
 }
 
-export async function isIpRateLimited(
-  ipHash: string,
-  windowHours: number,
-  maxRequests: number,
-): Promise<boolean> {
-  const [{ count }] = await sql<[{ count: string }]>`
-    SELECT COUNT(*)::text AS count
-    FROM reports
-    WHERE ip_hash    = ${ipHash}
-      AND user_id    IS NULL
-      AND created_at > NOW() - ${`${windowHours} hours`}::interval
-  `;
-  return Number(count) >= maxRequests;
+// In-memory rate limit for anonymous reports — resets on server restart, fine for MVP.
+const anonHits = new Map<string, number[]>();
+
+export function isAnonRateLimited(key: string, windowMs: number, max: number): boolean {
+  const now = Date.now();
+  const hits = (anonHits.get(key) ?? []).filter(t => now - t < windowMs);
+  if (hits.length >= max) return true;
+  hits.push(now);
+  anonHits.set(key, hits);
+  return false;
 }

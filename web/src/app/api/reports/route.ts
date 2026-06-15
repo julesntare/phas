@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import sql from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
-import { isRateLimited, isIpRateLimited } from '@/lib/rate-limit';
+import { isRateLimited, isAnonRateLimited } from '@/lib/rate-limit';
 import { runFusionForPlatform } from '@/lib/fusion';
 
 const VALID_TYPES = new Set(['affected', 'ok']);
 
-function hashIp(req: NextRequest): string {
+function getIpKey(req: NextRequest): string {
   const ip =
     req.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
     req.headers.get('x-real-ip') ??
@@ -16,7 +16,6 @@ function hashIp(req: NextRequest): string {
 }
 
 export async function POST(req: NextRequest) {
-  // Auth is optional — authenticated users get a higher rate limit.
   let userId: string | null = null;
   try {
     const u = await requireAuth(req.headers.get('authorization'));
@@ -30,8 +29,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
     }
   } else {
-    const ipHash = hashIp(req);
-    if (await isIpRateLimited(ipHash, 1, 5)) {
+    // 5 anonymous reports per IP per hour
+    if (isAnonRateLimited(getIpKey(req), 60 * 60 * 1000, 5)) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
     }
   }
@@ -51,16 +50,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Platform not found' }, { status: 404 });
   }
 
-  const ipHash = userId ? null : hashIp(req);
-
   const [report] = await sql<{ id: string }[]>`
     INSERT INTO reports (
-      platform_id, user_id, ip_hash, type,
+      platform_id, user_id, type,
       district, sector, cell, village,
       latitude, longitude,
       free_text, proof_image_url
     ) VALUES (
-      ${platformId}, ${userId ?? null}, ${ipHash}, ${type},
+      ${platformId}, ${userId ?? null}, ${type},
       ${district ?? null}, ${sector ?? null}, ${cell ?? null}, ${village ?? null},
       ${latitude ?? null}, ${longitude ?? null},
       ${freeText ?? null}, ${proofImageUrl ?? null}
@@ -75,6 +72,9 @@ export async function POST(req: NextRequest) {
       WHERE platform_id = ${platformId} AND state <> 'resolved'
       ORDER BY opened_at DESC LIMIT 1
     `;
+    if (incident) {
+      await sql`UPDATE reports SET incident_id = ${incident.id} WHERE id = ${report.id}`;
+    }
     return NextResponse.json(
       { id: report.id, incidentId: incident?.id ?? null },
       { status: 201 },
