@@ -28,6 +28,8 @@ export default function ReportModal({ platformId, platformName, onClose }: Repor
     if (saved) { setToken(saved); setStep('report'); }
   }, []);
 
+  function skipAuth() { setToken(null); setStep('report'); }
+
   async function requestOtp() {
     if (!RW_PHONE_RE.test(phone)) {
       setError('Enter a valid Rwanda phone number (+2507...)');
@@ -72,9 +74,11 @@ export default function ReportModal({ platformId, platformName, onClose }: Repor
     if (!reportType) return;
     setLoading(true); setError('');
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch('/api/reports', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers,
         body: JSON.stringify({ platformId, type: reportType, freeText: freeText || undefined }),
       });
       if (res.status === 401) {
@@ -96,7 +100,7 @@ export default function ReportModal({ platformId, platformName, onClose }: Repor
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div>
@@ -130,6 +134,12 @@ export default function ReportModal({ platformId, platformName, onClose }: Repor
                 className="w-full py-3 rounded-xl bg-brand text-white text-sm font-semibold disabled:opacity-50 hover:bg-brand-dark transition-colors"
               >
                 {loading ? 'Sending…' : 'Send code'}
+              </button>
+              <button
+                onClick={skipAuth}
+                className="w-full text-xs text-gray-400 hover:text-gray-600 transition-colors py-1"
+              >
+                Report anonymously instead
               </button>
             </div>
           )}

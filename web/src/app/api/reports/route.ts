@@ -1,22 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 import sql from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
-import { isRateLimited } from '@/lib/rate-limit';
+import { isRateLimited, isIpRateLimited } from '@/lib/rate-limit';
 import { runFusionForPlatform } from '@/lib/fusion';
 
 const VALID_TYPES = new Set(['affected', 'ok']);
 
+function hashIp(req: NextRequest): string {
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
+    req.headers.get('x-real-ip') ??
+    'unknown';
+  return createHash('sha256').update(ip).digest('hex');
+}
+
 export async function POST(req: NextRequest) {
-  let user;
+  // Auth is optional — authenticated users get a higher rate limit.
+  let userId: string | null = null;
   try {
-    user = await requireAuth(req.headers.get('authorization'));
+    const u = await requireAuth(req.headers.get('authorization'));
+    userId = u.sub;
   } catch {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // anonymous — proceed without userId
   }
 
-  // 10 reports per user per hour.
-  if (await isRateLimited(user.sub, 1, 10)) {
-    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+  if (userId) {
+    if (await isRateLimited(userId, 1, 10)) {
+      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+    }
+  } else {
+    const ipHash = hashIp(req);
+    if (await isIpRateLimited(ipHash, 1, 5)) {
+      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+    }
   }
 
   const body = await req.json().catch(() => null);
@@ -27,7 +44,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'platformId and type (affected|ok) required' }, { status: 400 });
   }
 
-  // Verify platform exists.
   const [platform] = await sql<{ id: string }[]>`
     SELECT id FROM platforms WHERE id = ${platformId}
   `;
@@ -35,14 +51,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Platform not found' }, { status: 404 });
   }
 
+  const ipHash = userId ? null : hashIp(req);
+
   const [report] = await sql<{ id: string }[]>`
     INSERT INTO reports (
-      platform_id, user_id, type,
+      platform_id, user_id, ip_hash, type,
       district, sector, cell, village,
       latitude, longitude,
       free_text, proof_image_url
     ) VALUES (
-      ${platformId}, ${user.sub}, ${type},
+      ${platformId}, ${userId ?? null}, ${ipHash}, ${type},
       ${district ?? null}, ${sector ?? null}, ${cell ?? null}, ${village ?? null},
       ${latitude ?? null}, ${longitude ?? null},
       ${freeText ?? null}, ${proofImageUrl ?? null}
@@ -51,7 +69,6 @@ export async function POST(req: NextRequest) {
   `;
 
   if (type === 'affected') {
-    // Await fusion so we can return the active incident ID in the same response.
     await runFusionForPlatform(platformId).catch(console.error);
     const [incident] = await sql<{ id: string }[]>`
       SELECT id FROM incidents
@@ -64,7 +81,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 'ok' reports: fire-and-forget fusion, respond immediately.
   runFusionForPlatform(platformId).catch(console.error);
   return NextResponse.json({ id: report.id }, { status: 201 });
 }
