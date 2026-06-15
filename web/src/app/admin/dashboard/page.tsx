@@ -17,6 +17,7 @@ interface Authority { id: string; name: string }
 
 type AccountType = 'operator' | 'regulator';
 type ModalMode = 'create' | 'edit';
+type Tab = 'operators' | 'regulators';
 
 function Avatar({ url, name }: { url: string | null; name: string | null }) {
   if (url) return (
@@ -36,6 +37,7 @@ export default function AdminDashboard() {
   const [regulators, setRegulators] = useState<Regulator[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [authorities, setAuthorities] = useState<Authority[]>([]);
+  const [tab, setTab] = useState<Tab>('operators');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -201,124 +203,140 @@ export default function AdminDashboard() {
         </div>
       </nav>
 
-      <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
-        {error && <div className="bg-red-50 border border-red-100 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>}
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        {error && <div className="bg-red-50 border border-red-100 text-red-700 rounded-xl px-4 py-3 text-sm mb-6">{error}</div>}
 
-        {/* Operators */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-bold text-gray-900">Operators</h2>
-              <p className="text-xs text-gray-400 mt-0.5">{operators.length} account{operators.length !== 1 ? 's' : ''}</p>
-            </div>
-            <button onClick={() => openCreate('operator')}
-              className="flex items-center gap-1.5 px-4 py-2 bg-brand text-white text-sm font-semibold rounded-xl hover:bg-brand-dark transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add operator
+        {/* Tab bar */}
+        <div className="flex items-center gap-1 mb-6 bg-white border border-gray-100 rounded-xl p-1 shadow-sm w-fit">
+          {([
+            { key: 'operators',  label: 'Operators',  count: operators.length },
+            { key: 'regulators', label: 'Regulators', count: regulators.length },
+          ] as { key: Tab; label: string; count: number }[]).map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                tab === t.key ? 'bg-brand text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'
+              }`}>
+              {t.label}
+              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                tab === t.key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+              }`}>{t.count}</span>
             </button>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            {operators.length === 0 ? (
-              <p className="text-center text-sm text-gray-400 py-10">No operators yet</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-xs text-gray-400 font-semibold uppercase tracking-wide">
-                    <th className="text-left px-5 py-3">Account</th>
-                    <th className="text-left px-4 py-3 hidden sm:table-cell">Platform</th>
-                    <th className="text-left px-4 py-3 hidden md:table-cell">Role</th>
-                    <th className="px-5 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {operators.map(op => (
-                    <tr key={op.id} className="hover:bg-gray-50/60 transition-colors">
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-3">
-                          <Avatar url={op.avatar_url} name={op.name ?? op.email} />
-                          <div className="min-w-0">
-                            <p className="font-semibold text-gray-900 truncate">{op.name ?? <span className="text-gray-400 italic">No name</span>}</p>
-                            <p className="text-xs text-gray-400 truncate">{op.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 hidden sm:table-cell text-gray-600 text-xs">{op.platform_name}</td>
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 capitalize">{op.role}</span>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <button onClick={() => openEdit('operator', op)}
-                          className="text-xs text-gray-500 border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50 transition-colors">
-                          Edit
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </section>
+          ))}
+        </div>
 
-        {/* Regulators */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-bold text-gray-900">Regulators</h2>
-              <p className="text-xs text-gray-400 mt-0.5">{regulators.length} account{regulators.length !== 1 ? 's' : ''}</p>
+        {/* Operators tab */}
+        {tab === 'operators' && (
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs text-gray-400">{operators.length} account{operators.length !== 1 ? 's' : ''}</p>
+              <button onClick={() => openCreate('operator')}
+                className="flex items-center gap-1.5 px-4 py-2 bg-brand text-white text-sm font-semibold rounded-xl hover:bg-brand-dark transition-colors">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add operator
+              </button>
             </div>
-            <button onClick={() => openCreate('regulator')}
-              className="flex items-center gap-1.5 px-4 py-2 bg-brand text-white text-sm font-semibold rounded-xl hover:bg-brand-dark transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add regulator
-            </button>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            {regulators.length === 0 ? (
-              <p className="text-center text-sm text-gray-400 py-10">No regulators yet</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-xs text-gray-400 font-semibold uppercase tracking-wide">
-                    <th className="text-left px-5 py-3">Account</th>
-                    <th className="text-left px-4 py-3 hidden sm:table-cell">Authority</th>
-                    <th className="text-left px-4 py-3 hidden md:table-cell">Role</th>
-                    <th className="px-5 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {regulators.map(reg => (
-                    <tr key={reg.id} className="hover:bg-gray-50/60 transition-colors">
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-3">
-                          <Avatar url={reg.avatar_url} name={reg.name ?? reg.email} />
-                          <div className="min-w-0">
-                            <p className="font-semibold text-gray-900 truncate">{reg.name ?? <span className="text-gray-400 italic">No name</span>}</p>
-                            <p className="text-xs text-gray-400 truncate">{reg.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 hidden sm:table-cell text-gray-600 text-xs">{reg.authority_name ?? '—'}</td>
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 capitalize">{reg.role}</span>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <button onClick={() => openEdit('regulator', reg)}
-                          className="text-xs text-gray-500 border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50 transition-colors">
-                          Edit
-                        </button>
-                      </td>
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              {operators.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-10">No operators yet</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-xs text-gray-400 font-semibold uppercase tracking-wide">
+                      <th className="text-left px-5 py-3">Account</th>
+                      <th className="text-left px-4 py-3 hidden sm:table-cell">Platform</th>
+                      <th className="text-left px-4 py-3 hidden md:table-cell">Role</th>
+                      <th className="px-5 py-3" />
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </section>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {operators.map(op => (
+                      <tr key={op.id} className="hover:bg-gray-50/60 transition-colors">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <Avatar url={op.avatar_url} name={op.name ?? op.email} />
+                            <div className="min-w-0">
+                              <p className="font-semibold text-gray-900 truncate">{op.name ?? <span className="text-gray-400 italic">No name</span>}</p>
+                              <p className="text-xs text-gray-400 truncate">{op.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 hidden sm:table-cell text-gray-600 text-xs">{op.platform_name}</td>
+                        <td className="px-4 py-3 hidden md:table-cell">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 capitalize">{op.role}</span>
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <button onClick={() => openEdit('operator', op)}
+                            className="text-xs text-gray-500 border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50 transition-colors">
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Regulators tab */}
+        {tab === 'regulators' && (
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs text-gray-400">{regulators.length} account{regulators.length !== 1 ? 's' : ''}</p>
+              <button onClick={() => openCreate('regulator')}
+                className="flex items-center gap-1.5 px-4 py-2 bg-brand text-white text-sm font-semibold rounded-xl hover:bg-brand-dark transition-colors">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add regulator
+              </button>
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              {regulators.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-10">No regulators yet</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-xs text-gray-400 font-semibold uppercase tracking-wide">
+                      <th className="text-left px-5 py-3">Account</th>
+                      <th className="text-left px-4 py-3 hidden sm:table-cell">Authority</th>
+                      <th className="text-left px-4 py-3 hidden md:table-cell">Role</th>
+                      <th className="px-5 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {regulators.map(reg => (
+                      <tr key={reg.id} className="hover:bg-gray-50/60 transition-colors">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <Avatar url={reg.avatar_url} name={reg.name ?? reg.email} />
+                            <div className="min-w-0">
+                              <p className="font-semibold text-gray-900 truncate">{reg.name ?? <span className="text-gray-400 italic">No name</span>}</p>
+                              <p className="text-xs text-gray-400 truncate">{reg.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 hidden sm:table-cell text-gray-600 text-xs">{reg.authority_name ?? '—'}</td>
+                        <td className="px-4 py-3 hidden md:table-cell">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 capitalize">{reg.role}</span>
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <button onClick={() => openEdit('regulator', reg)}
+                            className="text-xs text-gray-500 border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50 transition-colors">
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </section>
+        )}
       </div>
 
       {/* Modal */}
