@@ -69,6 +69,26 @@ function duration(from: string, to: string) {
   return `${Math.floor(mins / 1440)}d ${Math.floor((mins % 1440) / 60)}h`;
 }
 
+function formatHours(h: number): string {
+  if (h < 1) return `${Math.round(h * 60)}m`;
+  if (h < 24) return `${Math.round(h)}h`;
+  const days = h / 24;
+  if (days < 7) {
+    const d = Math.floor(days);
+    const rem = Math.round(h - d * 24);
+    return rem > 0 ? `${d}d ${rem}h` : `${d}d`;
+  }
+  const weeks = days / 7;
+  if (weeks < 4) {
+    const w = Math.floor(weeks);
+    const rem = Math.floor(days - w * 7);
+    return rem > 0 ? `${w}w ${rem}d` : `${w}w`;
+  }
+  const mo = Math.floor(days / 30);
+  const rem = Math.floor((days - mo * 30) / 7);
+  return rem > 0 ? `${mo}mo ${rem}w` : `${mo}mo`;
+}
+
 type Tab = 'overview' | 'platforms' | 'trend';
 
 export default function RegulatorDashboard() {
@@ -239,7 +259,7 @@ export default function RegulatorDashboard() {
                           {STATE_LABEL[b.state] ?? b.state}
                         </span>
                         <div className="text-right">
-                          <p className="text-sm font-bold text-red-600">{b.hours_open}h</p>
+                          <p className="text-sm font-bold text-red-600">{formatHours(Number(b.hours_open))}</p>
                           <p className="text-xs text-gray-400">
                             {b.breach_type === 'unacknowledged' ? 'Not acknowledged' : 'Not resolved'}
                           </p>
@@ -309,7 +329,7 @@ export default function RegulatorDashboard() {
                             : <span className="text-green-500">—</span>}
                         </td>
                         <td className="py-2.5 text-right text-gray-400">
-                          {a.avg_resolve_hours ? `${a.avg_resolve_hours}h` : '—'}
+                          {a.avg_resolve_hours ? formatHours(Number(a.avg_resolve_hours)) : '—'}
                         </td>
                       </tr>
                     ))}
@@ -397,7 +417,7 @@ export default function RegulatorDashboard() {
                               </td>
                               <td className="px-3 py-3 text-center text-gray-500 text-sm">{p.resolved_30d}</td>
                               <td className="px-5 py-3 text-right text-gray-400 text-sm">
-                                {p.avg_resolve_hours_30d != null ? `${p.avg_resolve_hours_30d}h` : '—'}
+                                {p.avg_resolve_hours_30d != null ? formatHours(Number(p.avg_resolve_hours_30d)) : '—'}
                               </td>
                             </tr>
                           ))}
@@ -502,7 +522,7 @@ export default function RegulatorDashboard() {
                               </div>
                             </td>
                             <td className="px-6 py-3 text-right text-gray-400">
-                              {a.avg_resolve_hours != null ? `${a.avg_resolve_hours}h` : '—'}
+                              {a.avg_resolve_hours != null ? formatHours(a.avg_resolve_hours) : '—'}
                             </td>
                           </tr>
                         );
