@@ -4,6 +4,7 @@ import Image from 'next/image';
 import sql from '@/lib/db';
 import StatusBody, { type PlatformRow } from './StatusBody';
 import LocalDate from '@/components/LocalDate';
+import CitizenProfileButton from '@/components/CitizenProfileButton';
 
 export const revalidate = 60;
 
@@ -67,9 +68,12 @@ export default async function StatusPage() {
             <Image src="/phas-icon.png" alt="PHAS" width={24} height={24} className="rounded-md" />
             PHAS
           </Link>
-          <span className="text-xs text-gray-400">
-            Updated <LocalDate options={{ hour: '2-digit', minute: '2-digit' }} />
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-400 hidden sm:block">
+              Updated <LocalDate options={{ hour: '2-digit', minute: '2-digit' }} />
+            </span>
+            <CitizenProfileButton />
+          </div>
         </div>
       </nav>
 

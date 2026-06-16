@@ -24,6 +24,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String? _selectedDistrict;
+  String? _name;
   bool _saving = false;
   bool _dirty = false;
 
@@ -32,7 +33,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     try {
       await ref.read(apiClientProvider).patch(
         '/api/profile',
-        {'district': _selectedDistrict},
+        {'district': _selectedDistrict, 'name': _name},
       );
       ref.invalidate(profileProvider);
       setState(() => _dirty = false);
@@ -49,6 +50,44 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _editName(String current) async {
+    final controller = TextEditingController(text: current);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Your name',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 80,
+          decoration: const InputDecoration(
+            hintText: 'Enter your name',
+            border: OutlineInputBorder(),
+            counterText: '',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && result != current && mounted) {
+      setState(() {
+        _name = result.isEmpty ? null : result;
+        _dirty = true;
+      });
     }
   }
 
@@ -129,6 +168,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         data: (user) {
           _selectedDistrict ??= user.district;
+          _name ??= user.name;
+          final displayName = _name ?? user.name ?? 'Citizen';
+
           return ListView(
             children: [
               // ── Avatar header ──────────────────────────────────────────
@@ -146,26 +188,47 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         border: Border.all(
                             color: const Color(0xFF0055A4).withAlpha(40)),
                       ),
-                      child: const Icon(Icons.person_outline_rounded,
-                          size: 30, color: Color(0xFF0055A4)),
+                      child: Center(
+                        child: Text(
+                          displayName[0].toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0055A4),
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Citizen',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF111827),
-                              )),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  displayName,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => _editName(displayName),
+                                child: const Icon(Icons.edit_outlined,
+                                    size: 16, color: Color(0xFF9CA3AF)),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 3),
                           Text(user.phone,
                               style: const TextStyle(
                                   fontSize: 14,
                                   color: Color(0xFF6B7280))),
-                          if (user.district != null) ...[
+                          if (_selectedDistrict != null || user.district != null) ...[
                             const SizedBox(height: 2),
                             Row(
                               children: [
@@ -173,7 +236,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     size: 12,
                                     color: Color(0xFF9CA3AF)),
                                 const SizedBox(width: 3),
-                                Text(user.district!,
+                                Text(_selectedDistrict ?? user.district!,
                                     style: const TextStyle(
                                         fontSize: 12,
                                         color: Color(0xFF9CA3AF))),
@@ -190,6 +253,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
               // ── Section: Account ───────────────────────────────────────
               const _SectionHeader(title: 'Account'),
+              _SettingsTile(
+                icon: Icons.person_outline,
+                label: 'Display name',
+                value: displayName,
+                onTap: () => _editName(displayName),
+              ),
               _SettingsTile(
                 icon: Icons.phone_outlined,
                 label: 'Phone number',
@@ -308,47 +377,55 @@ class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
   const _SettingsTile({
     required this.icon,
     required this.label,
     required this.value,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(9),
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        color: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon, size: 18, color: const Color(0xFF6B7280)),
             ),
-            child: Icon(icon, size: 18, color: const Color(0xFF6B7280)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF9CA3AF))),
-                const SizedBox(height: 1),
-                Text(value,
-                    style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF111827))),
-              ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF9CA3AF))),
+                  const SizedBox(height: 1),
+                  Text(value,
+                      style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF111827))),
+                ],
+              ),
             ),
-          ),
-        ],
+            if (onTap != null)
+              const Icon(Icons.chevron_right,
+                  size: 18, color: Color(0xFFD1D5DB)),
+          ],
+        ),
       ),
     );
   }
