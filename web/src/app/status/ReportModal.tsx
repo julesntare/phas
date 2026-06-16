@@ -169,8 +169,8 @@ export default function ReportModal({ platformId, platformName, onClose }: Repor
                       : 'Operator can see your name and may follow up'}
                   </p>
                 </div>
-                <div className={`w-10 h-6 rounded-full transition-colors shrink-0 ${isAnonymous ? 'bg-gray-300' : 'bg-brand'}`}>
-                  <div className={`w-4 h-4 bg-white rounded-full mt-1 transition-transform ${isAnonymous ? 'translate-x-1' : 'translate-x-5'}`} />
+                <div className={`w-10 h-6 rounded-full transition-colors shrink-0 ${isAnonymous ? 'bg-brand' : 'bg-gray-300'}`}>
+                  <div className={`w-4 h-4 bg-white rounded-full mt-1 transition-transform ${isAnonymous ? 'translate-x-5' : 'translate-x-1'}`} />
                 </div>
               </button>
 

@@ -22,9 +22,19 @@ export async function POST(req: NextRequest) {
   let userId: string | null = null;
 
   const session = await auth();
-  if (session?.user?.id) {
-    citizenId = session.user.id;
-  } else {
+  if (session?.user) {
+    citizenId = session.user.id ?? null;
+    // Fallback: jwt callback may not have set citizenId yet — look up by email.
+    if (!citizenId && session.user.email) {
+      const [c] = await sql<{ id: string }[]>`
+        SELECT id FROM citizen_accounts WHERE email = ${session.user.email}
+      `;
+      citizenId = c?.id ?? null;
+    }
+  }
+
+  if (!citizenId) {
+    // Try legacy phone JWT (mobile backward compatibility).
     try {
       const u = await requireAuth(req.headers.get('authorization'));
       userId = u.sub;

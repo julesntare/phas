@@ -29,12 +29,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return true;
     },
 
-    async jwt({ token, account }) {
-      if (account?.provider === 'google') {
-        const [citizen] = await sql<{ id: string }[]>`
-          SELECT id FROM citizen_accounts WHERE google_id = ${token.sub!}
-        `;
-        if (citizen) token.citizenId = citizen.id;
+    async jwt({ token }) {
+      // Run on every token check so sessions created before migration 011
+      // automatically get citizenId on the next request.
+      if (!token.citizenId && token.sub) {
+        try {
+          const [citizen] = await sql<{ id: string }[]>`
+            INSERT INTO citizen_accounts (google_id, email, name, avatar_url)
+            VALUES (
+              ${token.sub},
+              ${token.email ?? ''},
+              ${token.name ?? token.email ?? ''},
+              ${(token as Record<string, unknown>).picture as string ?? null}
+            )
+            ON CONFLICT (google_id) DO UPDATE
+              SET email      = EXCLUDED.email,
+                  name       = EXCLUDED.name,
+                  avatar_url = EXCLUDED.avatar_url
+            RETURNING id
+          `;
+          if (citizen) token.citizenId = citizen.id;
+        } catch {
+          // citizen_accounts table not yet migrated — leave citizenId unset
+        }
       }
       return token;
     },
