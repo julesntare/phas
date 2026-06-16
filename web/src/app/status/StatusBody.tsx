@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import ReportModal from './ReportModal';
 
@@ -61,6 +63,16 @@ export default function StatusBody({ platforms }: { platforms: PlatformRow[] }) 
   const [search,   setSearch]   = useState('');
   const [category, setCategory] = useState('');
   const [reportTarget, setReportTarget] = useState<{ id: string; name: string } | null>(null);
+
+  // After Google sign-in redirect, ?report=<id> is in the URL — auto-open the modal.
+  const searchParams = useSearchParams();
+  const { status: sessionStatus } = useSession();
+  useEffect(() => {
+    const reportId = searchParams.get('report');
+    if (!reportId || sessionStatus === 'loading') return;
+    const p = platforms.find(pl => pl.id === reportId);
+    if (p) setReportTarget({ id: p.id, name: p.name });
+  }, [searchParams, platforms, sessionStatus]);
 
   const categories = useMemo(
     () => [...new Set(platforms.map(p => p.category))].sort(),

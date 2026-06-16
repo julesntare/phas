@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import sql from '@/lib/db';
@@ -103,7 +104,20 @@ export default async function StatusPage() {
         </div>
 
         {/* Interactive body: tabs + search + filter + cards */}
-        <StatusBody platforms={platforms} />
+        <Suspense>
+          <StatusBody platforms={platforms} />
+        </Suspense>
+
+        {/* Footer */}
+        <div className="mt-12 pt-6 border-t border-gray-100 flex items-center justify-between gap-4 flex-wrap">
+          <p className="text-xs text-gray-400">
+            &copy; {new Date().getFullYear()} PHAS — Rwanda
+          </p>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="text-xs text-gray-400 hover:text-gray-600 transition-colors no-underline">Privacy Policy</Link>
+            <Link href="/terms" className="text-xs text-gray-400 hover:text-gray-600 transition-colors no-underline">Terms of Use</Link>
+          </div>
+        </div>
       </div>
     </div>
   );
