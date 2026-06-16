@@ -98,7 +98,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Sign out?',
             style: TextStyle(fontWeight: FontWeight.w700)),
-        content: const Text('You\'ll need to verify your phone number again.'),
+        content: const Text('You will be returned to the sign-in screen.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -179,25 +179,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
                 child: Row(
                   children: [
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0055A4).withAlpha(15),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: const Color(0xFF0055A4).withAlpha(40)),
-                      ),
-                      child: Center(
-                        child: Text(
-                          displayName[0].toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF0055A4),
-                          ),
-                        ),
-                      ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: user.avatarUrl != null
+                          ? Image.network(
+                              user.avatarUrl!,
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stack) => _InitialAvatar(
+                                  initial: displayName[0]),
+                            )
+                          : _InitialAvatar(initial: displayName[0]),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -224,10 +217,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ],
                           ),
                           const SizedBox(height: 3),
-                          Text(user.phone,
-                              style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Color(0xFF6B7280))),
+                          if (user.phone != null)
+                            Text(user.phone!,
+                                style: const TextStyle(
+                                    fontSize: 14, color: Color(0xFF6B7280)))
+                          else if (user.email != null)
+                            Text(user.email!,
+                                style: const TextStyle(
+                                    fontSize: 14, color: Color(0xFF6B7280))),
                           if (_selectedDistrict != null || user.district != null) ...[
                             const SizedBox(height: 2),
                             Row(
@@ -259,11 +256,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 value: displayName,
                 onTap: () => _editName(displayName),
               ),
-              _SettingsTile(
-                icon: Icons.phone_outlined,
-                label: 'Phone number',
-                value: user.phone,
-              ),
+              if (user.phone != null)
+                _SettingsTile(
+                  icon: Icons.phone_outlined,
+                  label: 'Phone number',
+                  value: user.phone!,
+                ),
+              if (user.email != null)
+                _SettingsTile(
+                  icon: Icons.email_outlined,
+                  label: 'Email',
+                  value: user.email!,
+                ),
 
               const Divider(),
 
@@ -371,6 +375,34 @@ class _SectionHeader extends StatelessWidget {
           ),
         ),
       );
+}
+
+class _InitialAvatar extends StatelessWidget {
+  final String initial;
+  const _InitialAvatar({required this.initial});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 64,
+      height: 64,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0055A4).withAlpha(15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF0055A4).withAlpha(40)),
+      ),
+      child: Center(
+        child: Text(
+          initial.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF0055A4),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _SettingsTile extends StatelessWidget {

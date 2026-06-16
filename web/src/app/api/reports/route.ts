@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import sql from '@/lib/db';
 import { auth } from '@/auth';
-import { requireAuth } from '@/lib/auth';
+import { verifyAnyToken, isCitizenToken } from '@/lib/auth';
 import { isRateLimited, isAnonRateLimited } from '@/lib/rate-limit';
 import { runFusionForPlatform } from '@/lib/fusion';
 
@@ -34,11 +34,23 @@ export async function POST(req: NextRequest) {
   }
 
   if (!citizenId) {
-    // Try legacy phone JWT (mobile backward compatibility).
-    try {
-      const u = await requireAuth(req.headers.get('authorization'));
-      userId = u.sub;
-    } catch {
+    // Try Bearer JWT — either citizen_google (mobile Google) or phone OTP (mobile legacy).
+    const authHeader = req.headers.get('authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const payload = await verifyAnyToken(authHeader.slice(7));
+        if (isCitizenToken(payload)) {
+          citizenId = payload.sub;
+        } else {
+          userId = payload.sub;
+        }
+      } catch {
+        return NextResponse.json(
+          { error: 'Sign in required to submit a report' },
+          { status: 401 },
+        );
+      }
+    } else {
       return NextResponse.json(
         { error: 'Sign in required to submit a report' },
         { status: 401 },
