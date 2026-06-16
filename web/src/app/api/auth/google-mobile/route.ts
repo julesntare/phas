@@ -25,19 +25,21 @@ export async function POST(req: NextRequest) {
     `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
   );
   if (!infoRes.ok) {
+    const detail = await infoRes.text().catch(() => '');
+    console.error('[google-mobile] tokeninfo rejected:', infoRes.status, detail);
     return NextResponse.json({ error: 'Invalid Google token' }, { status: 401 });
   }
 
   const info: GoogleTokenInfo = await infoRes.json();
 
-  // Token must not be expired and must be issued for our app.
   const validAudiences = [
-    process.env.GOOGLE_CLIENT_ID,        // web
-    process.env.GOOGLE_ANDROID_CLIENT_ID, // android (optional)
-    process.env.GOOGLE_IOS_CLIENT_ID,     // ios (optional)
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_ANDROID_CLIENT_ID,
+    process.env.GOOGLE_IOS_CLIENT_ID,
   ].filter(Boolean);
 
   if (validAudiences.length > 0 && !validAudiences.includes(info.aud)) {
+    console.error('[google-mobile] aud mismatch — got:', info.aud, 'expected one of:', validAudiences);
     return NextResponse.json({ error: 'Token audience mismatch' }, { status: 401 });
   }
 

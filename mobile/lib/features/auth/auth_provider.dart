@@ -5,11 +5,11 @@ import '../../core/notifications.dart';
 import '../../core/storage.dart';
 import '../../models/user.dart';
 
-// The Web OAuth client ID from Google Cloud Console (same one used for the web app).
-// Find it at: Google Cloud → APIs & Services → Credentials → Web client
+// Web OAuth client ID — used as serverClientId so the ID token aud matches
+// GOOGLE_CLIENT_ID on the backend, allowing the server to verify mobile tokens.
 const _googleWebClientId = String.fromEnvironment(
   'GOOGLE_WEB_CLIENT_ID',
-  defaultValue: '',
+  defaultValue: '125065064230-v0vpsgkhmb4ueq3qft5b9asv4kniq3ek.apps.googleusercontent.com',
 );
 
 final apiClientProvider = Provider((_) => ApiClient());
