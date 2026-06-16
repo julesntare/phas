@@ -542,7 +542,7 @@ export default function RegulatorDashboard() {
                     return (
                       <div className="space-y-3">
                         {trend.weekly.map(w => {
-                          const weekLabel = new Date(w.week_start).toLocaleDateString('en-RW', { month: 'short', day: 'numeric' });
+                          const weekLabel = new Date(w.week_start).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                           const openedPct = (w.opened / maxOpened) * 100;
                           const resolvedPct = w.opened > 0 ? (w.resolved / w.opened) * 100 : 0;
                           return (

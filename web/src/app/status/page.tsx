@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import sql from '@/lib/db';
 import StatusBody, { type PlatformRow } from './StatusBody';
+import LocalDate from '@/components/LocalDate';
 
 export const revalidate = 60;
 
@@ -67,7 +68,7 @@ export default async function StatusPage() {
             PHAS
           </Link>
           <span className="text-xs text-gray-400">
-            Updated {new Date().toLocaleTimeString('en-RW', { hour: '2-digit', minute: '2-digit' })}
+            Updated <LocalDate options={{ hour: '2-digit', minute: '2-digit' }} />
           </span>
         </div>
       </nav>

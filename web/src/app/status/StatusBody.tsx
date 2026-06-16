@@ -310,7 +310,7 @@ function PlatformCard({ platform: p, onReport }: { platform: PlatformRow; onRepo
           </p>
           {isUpcomingMaintenance && (
             <span className="ml-auto text-xs text-gray-400 shrink-0">
-              {new Date(mw.starts_at).toLocaleDateString('en-RW', { month: 'short', day: 'numeric' })}
+              {new Date(mw.starts_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
             </span>
           )}
         </div>
@@ -331,7 +331,7 @@ function PlatformCard({ platform: p, onReport }: { platform: PlatformRow; onRepo
                 <div className="flex items-center gap-2 min-w-0">
                   <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${HIST_DOT[inc.state] ?? 'bg-gray-300'}`} />
                   <span className="text-xs text-gray-600">
-                    {new Date(inc.opened_at).toLocaleDateString('en-RW', {
+                    {new Date(inc.opened_at).toLocaleDateString(undefined, {
                       month: 'short', day: 'numeric', year: 'numeric',
                     })}
                   </span>

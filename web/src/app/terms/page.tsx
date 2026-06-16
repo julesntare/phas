@@ -110,7 +110,7 @@ export default function TermsPage() {
 
         <Section title="10. Contact">
           <p>
-            Questions about these Terms: <strong>phas-support@gov.rw</strong>
+            Questions about these Terms: <strong>julesntare@gmail.com</strong>
           </p>
         </Section>
       </article>

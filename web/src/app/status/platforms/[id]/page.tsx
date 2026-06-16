@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import sql from '@/lib/db';
+import LocalDate from '@/components/LocalDate';
 
 export const revalidate = 60;
 
@@ -29,12 +30,10 @@ function formatDuration(from: string, to: string) {
   return `${Math.floor(mins / 1440)}d ${Math.floor((mins % 1440) / 60)}h`;
 }
 
-function formatDate(d: string) {
-  return new Date(d).toLocaleString('en-RW', {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-}
+const DATE_OPTS: Intl.DateTimeFormatOptions = {
+  month: 'short', day: 'numeric', year: 'numeric',
+  hour: '2-digit', minute: '2-digit',
+};
 
 export default async function PlatformHistoryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -199,9 +198,9 @@ function IncidentRow({ incident: inc }: { incident: IncidentRow }) {
             )}
           </div>
           <p className="text-xs text-gray-400 mt-1.5">
-            {formatDate(inc.opened_at)}
+            <LocalDate date={inc.opened_at} options={DATE_OPTS} />
             {inc.closed_at && (
-              <> — {formatDate(inc.closed_at)}</>
+              <> — <LocalDate date={inc.closed_at} options={DATE_OPTS} /></>
             )}
           </p>
         </div>

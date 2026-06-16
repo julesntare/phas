@@ -63,11 +63,11 @@ function formatDuration(hours: number) {
 }
 
 function formatDateTime(d: string) {
-  return new Date(d).toLocaleString('en-RW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(d).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('en-RW', { month: 'short', day: 'numeric' });
+  return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 type Tab = 'incidents' | 'history' | 'health' | 'maintenance' | 'profile';
@@ -448,7 +448,7 @@ export default function OperatorDashboard() {
                       {health.probe24h.map(b => {
                         const pct = b.total > 0 ? b.ok_count / b.total : 1;
                         const color = pct >= 0.98 ? 'bg-green-400' : pct >= 0.8 ? 'bg-amber-400' : 'bg-red-500';
-                        const hour = new Date(b.hour).toLocaleTimeString('en-RW', { hour: '2-digit', minute: '2-digit' });
+                        const hour = new Date(b.hour).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
                         return (
                           <div key={b.hour} title={`${hour} — ${b.ok_count}/${b.total} ok`}
                             className={`w-5 h-5 rounded ${color} opacity-90 hover:opacity-100 transition-opacity cursor-default`} />
@@ -478,7 +478,7 @@ export default function OperatorDashboard() {
                         {health.reports7d.map(r => (
                           <div key={r.day} className="flex items-center gap-3">
                             <span className="text-xs text-gray-500 w-16 shrink-0">
-                              {new Date(r.day).toLocaleDateString('en-RW', { weekday: 'short', day: 'numeric' })}
+                              {new Date(r.day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}
                             </span>
                             <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
                               <div className="h-full bg-brand rounded-full transition-all"

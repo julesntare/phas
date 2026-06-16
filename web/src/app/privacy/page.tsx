@@ -132,7 +132,7 @@ export default function PrivacyPage() {
         <Section title="9. Contact">
           <p>
             For privacy-related requests or questions, contact:{' '}
-            <strong>phas-support@gov.rw</strong>
+            <strong>julesntare@gmail.com</strong>
           </p>
         </Section>
       </article>
