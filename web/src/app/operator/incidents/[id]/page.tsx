@@ -91,11 +91,55 @@ export default function OperatorIncidentPage({ params }: { params: Promise<{ id:
       <div className="w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin" />
     </div>
   );
-  if (error || !incident) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <p className="text-red-500 text-sm">{error || 'Not found'}</p>
-    </div>
-  );
+  if (error || !incident) {
+    const isNotFound = !incident && (!error || error.toLowerCase().includes('not found'));
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <nav className="bg-white border-b border-gray-100">
+          <div className="max-w-3xl mx-auto px-4 h-14 flex items-center gap-3">
+            <Link href="/operator/dashboard"
+              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 no-underline transition-colors">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Dashboard
+            </Link>
+          </div>
+        </nav>
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="text-center max-w-sm w-full">
+            <div className="mx-auto mb-6 w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center">
+              {isNotFound ? (
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                    d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              )}
+            </div>
+            <h1 className="text-lg font-extrabold text-gray-900 mb-1">
+              {isNotFound ? 'Incident not found' : 'Something went wrong'}
+            </h1>
+            <p className="text-sm text-gray-500 mb-6">
+              {isNotFound
+                ? 'This incident may have been removed or the link is invalid.'
+                : error}
+            </p>
+            <Link
+              href="/operator/dashboard"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand text-white text-sm font-semibold no-underline hover:opacity-90 transition-opacity"
+            >
+              Back to dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const canAcknowledge = ['detected', 'confirmed', 'recurred'].includes(incident.state);
   const canPartiallyResolve = incident.state === 'acknowledged';
