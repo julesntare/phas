@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -37,23 +36,6 @@ class _PlatformDetailScreenState
       setState(() => _message = "Thanks — noted as working for you.");
     } on ApiException catch (e) {
       setState(() => _message = 'Error: ${e.message}');
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
-  }
-
-  Future<void> _testNotification() async {
-    setState(() { _submitting = true; _message = null; });
-    try {
-      await ref.read(apiClientProvider).post(
-        '/api/dev/test-notification',
-        {'platformId': widget.platform.id},
-      );
-      if (mounted) {
-        setState(() => _message = 'Notification sent — background the app and check your tray.');
-      }
-    } on ApiException catch (e) {
-      setState(() => _message = 'Notify error: ${e.message}');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -202,43 +184,6 @@ class _PlatformDetailScreenState
               child: _IncidentHistorySection(platformId: p.id),
             ),
 
-            // ── Debug tools ────────────────────────────────────────────
-            if (kDebugMode)
-              Container(
-                margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('DEV  ',
-                        style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFFD1D5DB),
-                            letterSpacing: 1)),
-                    TextButton(
-                      onPressed:
-                          _submitting ? null : _testNotification,
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF9CA3AF),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8),
-                        minimumSize: Size.zero,
-                        tapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
-                        textStyle: const TextStyle(fontSize: 11),
-                      ),
-                      child: const Text('Test notif'),
-                    ),
-                  ],
-                ),
-              ),
           ],
         ),
       ),
