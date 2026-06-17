@@ -44,7 +44,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const [events, comments, [{ cosign_count }]] = await Promise.all([
+  const [events, comments, reports, [{ cosign_count }]] = await Promise.all([
     sql<{ from_state: string | null; to_state: string; source: string; note: string | null; at: Date }[]>`
       SELECT from_state, to_state, source, note, at
       FROM incident_events
@@ -57,13 +57,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       WHERE incident_id = ${id}
       ORDER BY created_at ASC LIMIT 100
     `,
+    sql<{ id: string; free_text: string | null; proof_image_url: string | null; district: string | null; created_at: Date }[]>`
+      SELECT id, free_text, proof_image_url, district, created_at
+      FROM reports
+      WHERE incident_id = ${id}
+        AND (free_text IS NOT NULL OR proof_image_url IS NOT NULL)
+      ORDER BY created_at ASC LIMIT 50
+    `,
     sql<{ cosign_count: string }[]>`
       SELECT COUNT(*) AS cosign_count FROM reports
       WHERE incident_id = ${id}
     `,
   ]);
 
-  return NextResponse.json({ ...incident, events, comments, cosignCount: Number(cosign_count) });
+  return NextResponse.json({ ...incident, events, comments, reports, cosignCount: Number(cosign_count) });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

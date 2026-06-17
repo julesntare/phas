@@ -8,10 +8,11 @@ interface IncidentEvent {
   from_state: string | null; to_state: string; source: string; note: string | null; at: string;
 }
 interface Comment { id: string; content: string; district: string | null; created_at: string; }
+interface Report { id: string; free_text: string | null; proof_image_url: string | null; district: string | null; created_at: string; }
 interface Incident {
   id: string; state: string; opened_at: string; closed_at: string | null;
   confidence: number; recurrence_count: number; platform_name: string; authority_name: string;
-  cosignCount: number; events: IncidentEvent[]; comments: Comment[];
+  cosignCount: number; events: IncidentEvent[]; comments: Comment[]; reports: Report[];
 }
 
 const STATE_LABEL: Record<string, string> = {
@@ -167,6 +168,41 @@ export default function OperatorIncidentPage({ params }: { params: Promise<{ id:
               )}
               <ActionButton label="Mark resolved" color="green"
                 disabled={actionLoading} onClick={() => doAction('resolve')} />
+            </div>
+          </div>
+        )}
+
+        {/* Citizen Reports */}
+        {incident.reports.length > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+            <h2 className="text-sm font-bold text-gray-700 mb-4">
+              Citizen reports
+              <span className="ml-2 text-xs font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                {incident.cosignCount}
+              </span>
+            </h2>
+            <div className="space-y-3">
+              {incident.reports.map((r, i) => (
+                <div key={r.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-gray-500">
+                      Report #{i + 1} · {r.district ?? 'Unknown district'}
+                    </span>
+                    <span className="text-xs text-gray-400">{timeAgo(r.created_at)}</span>
+                  </div>
+                  {r.free_text && (
+                    <p className="text-sm text-gray-800 leading-relaxed">{r.free_text}</p>
+                  )}
+                  {r.proof_image_url && (
+                    <a href={r.proof_image_url} target="_blank" rel="noopener noreferrer"
+                      className="mt-2 block">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={r.proof_image_url} alt="Proof"
+                        className="rounded-lg max-h-48 object-cover border border-gray-200" />
+                    </a>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
