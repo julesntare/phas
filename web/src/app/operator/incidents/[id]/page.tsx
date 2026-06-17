@@ -55,12 +55,18 @@ export default function OperatorIncidentPage({ params }: { params: Promise<{ id:
 
   function getToken() { return localStorage.getItem('operator_token'); }
 
+  function logout() {
+    localStorage.removeItem('operator_token');
+    localStorage.removeItem('operator_info');
+    router.replace('/operator');
+  }
+
   function loadIncident() {
     const token = getToken();
     if (!token) { router.replace('/operator'); return; }
     fetch(`/api/operator/incidents/${id}`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(data => { if (data.id) setIncident(data); else setError(data.error ?? 'Failed to load'); })
+      .then(r => { if (r.status === 401) { logout(); return null; } return r.json(); })
+      .then(data => { if (!data) return; if (data.id) setIncident(data); else setError(data.error ?? 'Failed to load'); })
       .catch(() => setError('Network error'))
       .finally(() => setLoading(false));
   }

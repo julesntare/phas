@@ -120,17 +120,23 @@ export default function OperatorDashboard() {
 
   function getToken() { return localStorage.getItem('operator_token'); }
 
+  function logout() {
+    localStorage.removeItem('operator_token');
+    localStorage.removeItem('operator_info');
+    router.replace('/operator');
+  }
+
   useEffect(() => {
     const token = getToken();
     if (!token) { router.replace('/operator'); return; }
     const info = localStorage.getItem('operator_info');
     if (info) setOperatorName(JSON.parse(info).name ?? JSON.parse(info).email);
     fetch('/api/operator/incidents', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(d => { if (Array.isArray(d)) setIncidents(d); else setIncError(d.error ?? 'Failed'); })
+      .then(r => { if (r.status === 401) { logout(); return null; } return r.json(); })
+      .then(d => { if (!d) return; if (Array.isArray(d)) setIncidents(d); else setIncError(d.error ?? 'Failed'); })
       .catch(() => setIncError('Network error'))
       .finally(() => setIncLoading(false));
-  }, [router]);
+  }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadHistory = useCallback(() => {
     if (histLoaded) return;

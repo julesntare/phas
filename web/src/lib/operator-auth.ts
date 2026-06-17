@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { scryptSync, randomBytes, timingSafeEqual } from 'crypto';
 import { hashToken } from './auth';
+import sql from './db';
 
 export { hashToken };
 
@@ -31,7 +32,10 @@ export async function verifyOperatorToken(token: string): Promise<OperatorPayloa
 
 export async function requireOperatorAuth(authHeader: string | null): Promise<OperatorPayload> {
   if (!authHeader?.startsWith('Bearer ')) throw new Error('Missing token');
-  return verifyOperatorToken(authHeader.slice(7));
+  const payload = await verifyOperatorToken(authHeader.slice(7));
+  const [row] = await sql<{ id: string }[]>`SELECT id FROM help_desk_accounts WHERE id = ${payload.sub} LIMIT 1`;
+  if (!row) throw new Error('Operator not found');
+  return payload;
 }
 
 export function hashPassword(password: string): string {
