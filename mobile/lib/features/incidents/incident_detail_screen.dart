@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_client.dart';
 import '../../models/incident.dart';
+import '../../widgets/loaders.dart';
 import 'incident_provider.dart';
 
 // ── State colors / labels (shared across widgets) ─────────────────────────────
@@ -78,8 +79,7 @@ class _IncidentDetailScreenState
     return Scaffold(
       appBar: AppBar(title: Text(widget.platformName)),
       body: incidentAsync.when(
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: DotsLoader()),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
@@ -363,11 +363,7 @@ class _CosignCard extends StatelessWidget {
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: cosigning
-                    ? const SizedBox(
-                        height: 14,
-                        width: 14,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
+                    ? const DotsLoader(color: Colors.white, dotSize: 5)
                     : const Text('Co-sign',
                         style: TextStyle(fontSize: 13)),
               ),
@@ -576,8 +572,7 @@ class _CommentsSectionState extends ConsumerState<_CommentsSection> {
         commentsAsync.when(
           loading: () => const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(
-                child: CircularProgressIndicator(strokeWidth: 2)),
+            child: Center(child: DotsLoader()),
           ),
           error: (_, st) => const Text('Could not load comments',
               style: TextStyle(color: Color(0xFF9CA3AF))),
@@ -630,11 +625,7 @@ class _CommentsSectionState extends ConsumerState<_CommentsSection> {
             IconButton.filled(
               onPressed: _sending ? null : _send,
               icon: _sending
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
+                  ? const DotsLoader(color: Colors.white, dotSize: 5)
                   : const Icon(Icons.send_rounded, size: 18),
             ),
           ],

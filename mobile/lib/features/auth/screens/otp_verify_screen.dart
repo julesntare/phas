@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api_client.dart';
+import '../../../widgets/loaders.dart';
 import '../auth_provider.dart';
 
 class OtpVerifyScreen extends ConsumerStatefulWidget {
@@ -198,12 +199,8 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
                         elevation: 0,
                       ),
                       child: _loading
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Color(0xFF003A7A)))
+                          ? const DotsLoader(
+                              color: Color(0xFF003A7A), dotSize: 6)
                           : const Text(
                               'Verify & sign in',
                               style: TextStyle(

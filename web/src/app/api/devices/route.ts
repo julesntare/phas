@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
+import { verifyAnyToken } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   let user;
   try {
-    user = await requireAuth(req.headers.get('authorization'));
+    const h = req.headers.get('authorization');
+    if (!h?.startsWith('Bearer ')) throw new Error();
+    user = await verifyAnyToken(h.slice(7));
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -36,7 +38,9 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   let user;
   try {
-    user = await requireAuth(req.headers.get('authorization'));
+    const h = req.headers.get('authorization');
+    if (!h?.startsWith('Bearer ')) throw new Error();
+    user = await verifyAnyToken(h.slice(7));
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

@@ -2,7 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/theme.dart';
 import '../../../models/platform.dart';
+import '../../../widgets/loaders.dart';
 import '../platforms_provider.dart';
 
 // ── Category icon mapping ─────────────────────────────────────────────────────
@@ -81,7 +83,21 @@ class _PlatformsScreenState extends ConsumerState<PlatformsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Platforms'),
+        title: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.asset(
+                'assets/icon/phas-icon.png',
+                width: 26,
+                height: 26,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 9),
+            const Text('Platforms'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_none_outlined, size: 22),
@@ -92,6 +108,22 @@ class _PlatformsScreenState extends ConsumerState<PlatformsScreen> {
             icon: const Icon(Icons.refresh_outlined, size: 22),
             onPressed: () => ref.invalidate(platformsProvider),
             tooltip: 'Refresh',
+          ),
+          Consumer(
+            builder: (context, ref, _) {
+              final mode = ref.watch(themeProvider);
+              final isDark = mode == ThemeMode.dark ||
+                  (mode == ThemeMode.system &&
+                      MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+              return IconButton(
+                icon: Icon(
+                  isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                  size: 22,
+                ),
+                onPressed: () => ref.read(themeProvider.notifier).toggle(),
+                tooltip: isDark ? 'Light mode' : 'Dark mode',
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.person_outline, size: 22),
@@ -112,8 +144,11 @@ class _PlatformsScreenState extends ConsumerState<PlatformsScreen> {
               final issueCount = list.where((p) => p.hasIssue).length;
               final total = list.length;
               final allOk = issueCount == 0;
+              final isDark = Theme.of(context).brightness == Brightness.dark;
               return Container(
-                color: allOk ? const Color(0xFFF0FDF4) : const Color(0xFFFFF7ED),
+                color: allOk
+                    ? (isDark ? const Color(0xFF052E16) : const Color(0xFFF0FDF4))
+                    : (isDark ? const Color(0xFF431407) : const Color(0xFFFFF7ED)),
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                 child: Row(
                   children: [
@@ -167,16 +202,10 @@ class _PlatformsScreenState extends ConsumerState<PlatformsScreen> {
                         ],
                       ),
                     ),
-                    // Small live dot
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: allOk
-                            ? const Color(0xFF16A34A)
-                            : const Color(0xFFF97316),
-                        shape: BoxShape.circle,
-                      ),
+                    PulsingDot(
+                      color: allOk
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFFF97316),
                     ),
                   ],
                 ),
@@ -185,7 +214,7 @@ class _PlatformsScreenState extends ConsumerState<PlatformsScreen> {
           ),
           // ── Search bar ──────────────────────────────────────────────────
           Container(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: TextField(
               controller: _searchCtrl,
@@ -216,7 +245,7 @@ class _PlatformsScreenState extends ConsumerState<PlatformsScreen> {
               final categories =
                   list.map((p) => p.category).toSet().toList()..sort();
               return Container(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
@@ -251,8 +280,12 @@ class _PlatformsScreenState extends ConsumerState<PlatformsScreen> {
           // ── List ────────────────────────────────────────────────────────
           Expanded(
             child: platforms.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: 7,
+                separatorBuilder: (_, i) => const Divider(indent: 72),
+                itemBuilder: (_, i) => const _SkeletonPlatformTile(),
+              ),
               error: (e, _) => _ErrorState(error: '$e'),
               data: (list) {
                 final filtered = _filter(list);
@@ -300,7 +333,9 @@ class _FilterChip extends StatelessWidget {
         padding:
             const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? c.withAlpha(25) : const Color(0xFFF3F4F6),
+          color: selected
+              ? c.withAlpha(25)
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
           border: Border.all(
               color: selected ? c : Colors.transparent, width: 1.5),
           borderRadius: BorderRadius.circular(20),
@@ -346,86 +381,134 @@ class _PlatformTile extends ConsumerWidget {
     return InkWell(
       onTap: () =>
           context.push('/platforms/${platform.id}', extra: platform),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            // Operator logo or category icon
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: statusColor.withAlpha(20),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: statusColor.withAlpha(30)),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: platform.operatorAvatarUrl != null
-                  ? Image.network(
-                      platform.operatorAvatarUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Icon(
-                        _categoryIcon(platform.category),
-                        size: 20, color: statusColor,
-                      ),
-                    )
-                  : Icon(_categoryIcon(platform.category),
-                      size: 20, color: statusColor),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              color: hasIssue ? statusColor : Colors.transparent,
+              width: 3,
             ),
-            const SizedBox(width: 12),
-            // Name + authority
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    platform.name,
-                    style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600,
-                        color: Color(0xFF111827)),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    platform.authorityName,
-                    style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF6B7280)),
-                  ),
-                  if (platform.uptime7d != null) ...[
-                    const SizedBox(height: 3),
-                    _UptimeBar(uptime: platform.uptime7d!),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(13, 12, 16, 12),
+          child: Row(
+            children: [
+              // Operator logo or category icon
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: statusColor.withAlpha(20),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: statusColor.withAlpha(30)),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: platform.operatorAvatarUrl != null
+                    ? Image.network(
+                        platform.operatorAvatarUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stack) => Icon(
+                          _categoryIcon(platform.category),
+                          size: 20, color: statusColor,
+                        ),
+                      )
+                    : Icon(_categoryIcon(platform.category),
+                        size: 20, color: statusColor),
+              ),
+              const SizedBox(width: 12),
+              // Name + authority
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      platform.name,
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      platform.authorityName,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    ),
+                    if (platform.uptime7d != null) ...[
+                      const SizedBox(height: 3),
+                      _UptimeBar(uptime: platform.uptime7d!),
+                    ],
                   ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Status + follow
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _StatusBadge(platform: platform),
+                  const SizedBox(height: 6),
+                  isLoadingFollow
+                      ? const DotsLoader(dotSize: 5)
+                      : GestureDetector(
+                          onTap: () => ref
+                              .read(followedPlatformsProvider.notifier)
+                              .toggle(platform.id),
+                          child: Icon(
+                            isFollowing
+                                ? Icons.notifications_active
+                                : Icons.notifications_none_outlined,
+                            size: 20,
+                            color: isFollowing
+                                ? Theme.of(context).colorScheme.primary
+                                : const Color(0xFFD1D5DB),
+                          ),
+                        ),
                 ],
               ),
-            ),
-            const SizedBox(width: 8),
-            // Status + follow
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Skeleton loading tile ─────────────────────────────────────────────────────
+
+class _SkeletonPlatformTile extends StatelessWidget {
+  const _SkeletonPlatformTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Row(
+        children: [
+          Skeleton(width: 42, height: 42, radius: 10),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _StatusBadge(platform: platform),
-                const SizedBox(height: 6),
-                isLoadingFollow
-                    ? const SizedBox(
-                        width: 20, height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : GestureDetector(
-                        onTap: () => ref
-                            .read(followedPlatformsProvider.notifier)
-                            .toggle(platform.id),
-                        child: Icon(
-                          isFollowing
-                              ? Icons.notifications_active
-                              : Icons.notifications_none_outlined,
-                          size: 20,
-                          color: isFollowing
-                              ? Theme.of(context).colorScheme.primary
-                              : const Color(0xFFD1D5DB),
-                        ),
-                      ),
+                Skeleton(width: 130, height: 13, radius: 6),
+                const SizedBox(height: 7),
+                Skeleton(width: 90, height: 11, radius: 5),
+                const SizedBox(height: 7),
+                Skeleton(width: 60, height: 7, radius: 3),
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Skeleton(width: 40, height: 18, radius: 9),
+              const SizedBox(height: 8),
+              Skeleton(width: 20, height: 20, radius: 10),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -518,14 +601,16 @@ class _EmptyState extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(filtered ? Icons.search_off : Icons.web_outlined,
-                  size: 48, color: const Color(0xFFD1D5DB)),
+                  size: 48,
+                  color: Theme.of(context).colorScheme.outlineVariant),
               const SizedBox(height: 12),
               Text(
                 filtered
                     ? 'No platforms match your filters'
                     : 'No platforms yet',
-                style: const TextStyle(
-                    fontSize: 15, color: Color(0xFF6B7280),
+                style: TextStyle(
+                    fontSize: 15,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w500),
               ),
             ],
@@ -545,17 +630,20 @@ class _ErrorState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cloud_off_outlined,
-                  size: 48, color: Color(0xFFD1D5DB)),
+              Icon(Icons.cloud_off_outlined,
+                  size: 48,
+                  color: Theme.of(context).colorScheme.outlineVariant),
               const SizedBox(height: 12),
-              const Text('Could not load platforms',
-                  style: TextStyle(fontSize: 15,
-                      color: Color(0xFF6B7280),
+              Text('Could not load platforms',
+                  style: TextStyle(
+                      fontSize: 15,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w500)),
               const SizedBox(height: 4),
               Text(error,
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF9CA3AF)),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.outline),
                   textAlign: TextAlign.center),
             ],
           ),

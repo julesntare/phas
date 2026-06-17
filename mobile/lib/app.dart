@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'core/notifications.dart';
 import 'core/storage.dart';
+import 'core/theme.dart';
 import 'features/auth/screens/phone_entry_screen.dart';
 import 'features/auth/screens/otp_verify_screen.dart';
 import 'features/incidents/incident_detail_screen.dart';
-import 'features/platforms/screens/platforms_screen.dart';
-import 'features/profile/profile_screen.dart';
 import 'features/notifications/notification_history_screen.dart';
 import 'features/platforms/screens/platform_detail_screen.dart';
+import 'features/platforms/screens/platforms_screen.dart';
+import 'features/profile/profile_screen.dart';
 import 'models/platform.dart';
 
 // Top-level so NotificationService can push routes into it.
@@ -44,10 +46,7 @@ final appRouter = GoRouter(
         );
       },
     ),
-    GoRoute(
-      path: '/profile',
-      builder: (_, _) => const ProfileScreen(),
-    ),
+    GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
     GoRoute(
       path: '/notifications',
       builder: (_, _) => const NotificationHistoryScreen(),
@@ -55,27 +54,82 @@ final appRouter = GoRouter(
   ],
 );
 
-class PhasApp extends StatefulWidget {
+// ── Shared theme builders ─────────────────────────────────────────────────────
+
+ThemeData _buildTheme(Brightness brightness) {
+  final isDark = brightness == Brightness.dark;
+  return ThemeData(
+    colorSchemeSeed: const Color(0xFF0055A4),
+    brightness: brightness,
+    useMaterial3: true,
+    scaffoldBackgroundColor:
+        isDark ? const Color(0xFF0D1117) : const Color(0xFFF8F9FB),
+    appBarTheme: AppBarTheme(
+      backgroundColor: isDark ? const Color(0xFF161B22) : Colors.white,
+      foregroundColor: isDark ? Colors.white : const Color(0xFF111827),
+      elevation: 0,
+      scrolledUnderElevation: 1,
+      surfaceTintColor: isDark ? const Color(0xFF161B22) : Colors.white,
+      titleTextStyle: TextStyle(
+        color: isDark ? Colors.white : const Color(0xFF111827),
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+    cardTheme: CardThemeData(
+      elevation: 0,
+      color: isDark ? const Color(0xFF161B22) : Colors.white,
+      surfaceTintColor: isDark ? const Color(0xFF161B22) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+            color: isDark ? const Color(0xFF30363D) : const Color(0xFFE5E7EB)),
+      ),
+      margin: EdgeInsets.zero,
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(
+            color:
+                isDark ? const Color(0xFF30363D) : const Color(0xFFD1D5DB)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(
+            color:
+                isDark ? const Color(0xFF30363D) : const Color(0xFFD1D5DB)),
+      ),
+      filled: true,
+      fillColor: isDark ? const Color(0xFF161B22) : Colors.white,
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    ),
+    dividerTheme: DividerThemeData(
+      color: isDark ? const Color(0xFF21262D) : const Color(0xFFE5E7EB),
+      space: 1,
+      thickness: 1,
+    ),
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+
+class PhasApp extends ConsumerStatefulWidget {
   const PhasApp({super.key});
 
   @override
-  State<PhasApp> createState() => _PhasAppState();
+  ConsumerState<PhasApp> createState() => _PhasAppState();
 }
 
-class _PhasAppState extends State<PhasApp> {
+class _PhasAppState extends ConsumerState<PhasApp> {
   @override
   void initState() {
     super.initState();
-
     void navigate(String path, Map<String, String> extra) =>
         appRouter.push(path, extra: extra);
-
-    // Register callback — also flushes any local-notification tap that arrived
-    // before the router was ready.
     NotificationService.setTapCallback(navigate);
-    // Handle background→foreground taps (onMessageOpenedApp).
     NotificationService.listenForTaps(navigate);
-    // Deliver any tap that arrived while the app was fully terminated.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService.consumePending(navigate);
     });
@@ -83,56 +137,14 @@ class _PhasAppState extends State<PhasApp> {
 
   @override
   Widget build(BuildContext context) {
+    final themeMode = ref.watch(themeProvider);
     return MaterialApp.router(
       title: 'PHAS',
       routerConfig: appRouter,
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF0055A4),
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF8F9FB),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          foregroundColor: Color(0xFF111827),
-          elevation: 0,
-          scrolledUnderElevation: 1,
-          surfaceTintColor: Colors.white,
-          titleTextStyle: TextStyle(
-            color: Color(0xFF111827),
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        cardTheme: CardThemeData(
-          elevation: 0,
-          color: Colors.white,
-          surfaceTintColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: Color(0xFFE5E7EB)),
-          ),
-          margin: EdgeInsets.zero,
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-          ),
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        ),
-        dividerTheme: const DividerThemeData(
-          color: Color(0xFFE5E7EB),
-          space: 1,
-          thickness: 1,
-        ),
-      ),
+      themeMode: themeMode,
+      theme: _buildTheme(Brightness.light),
+      darkTheme: _buildTheme(Brightness.dark),
     );
   }
 }

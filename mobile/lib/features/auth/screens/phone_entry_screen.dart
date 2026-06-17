@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api_client.dart';
+import '../../../widgets/loaders.dart';
 import '../auth_provider.dart';
 
 
@@ -212,12 +213,8 @@ class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
                         elevation: 0,
                       ),
                       child: _loading
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Color(0xFF003A7A)))
+                          ? const DotsLoader(
+                              color: Color(0xFF003A7A), dotSize: 6)
                           : const Text(
                               'Send verification code',
                               style: TextStyle(
@@ -255,11 +252,8 @@ class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
                             borderRadius: BorderRadius.circular(16)),
                       ),
                       child: _googleLoading
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2.5, color: Colors.white))
+                          ? const DotsLoader(
+                              color: Colors.white, dotSize: 6)
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [

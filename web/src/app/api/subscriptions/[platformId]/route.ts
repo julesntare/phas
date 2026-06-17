@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
+import { verifyAnyToken } from '@/lib/auth';
 
 // DELETE /api/subscriptions/:platformId — unfollow a platform.
 export async function DELETE(
@@ -9,7 +9,9 @@ export async function DELETE(
 ) {
   let user;
   try {
-    user = await requireAuth(req.headers.get('authorization'));
+    const h = req.headers.get('authorization');
+    if (!h?.startsWith('Bearer ')) throw new Error();
+    user = await verifyAnyToken(h.slice(7));
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

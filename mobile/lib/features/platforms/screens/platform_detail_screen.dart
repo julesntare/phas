@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../widgets/loaders.dart';
 import '../../../core/api_client.dart';
 import '../../../models/incident.dart';
 import '../../../models/platform.dart';
@@ -36,28 +37,6 @@ class _PlatformDetailScreenState
       setState(() => _message = "Thanks — noted as working for you.");
     } on ApiException catch (e) {
       setState(() => _message = 'Error: ${e.message}');
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
-  }
-
-  Future<void> _seedIncident() async {
-    setState(() { _submitting = true; _message = null; });
-    try {
-      final result = await ref.read(apiClientProvider).post(
-        '/api/dev/seed-incident',
-        {'platformId': widget.platform.id},
-        auth: false,
-      );
-      final incidentId = result['incidentId'] as String;
-      if (mounted) {
-        context.push('/incidents/$incidentId', extra: {
-          'incidentId': incidentId,
-          'platformName': widget.platform.name,
-        });
-      }
-    } on ApiException catch (e) {
-      setState(() => _message = 'Seed error: ${e.message}');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -243,22 +222,6 @@ class _PlatformDetailScreenState
                             fontWeight: FontWeight.w700,
                             color: Color(0xFFD1D5DB),
                             letterSpacing: 1)),
-                    TextButton(
-                      onPressed: _submitting ? null : _seedIncident,
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF9CA3AF),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8),
-                        minimumSize: Size.zero,
-                        tapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
-                        textStyle: const TextStyle(fontSize: 11),
-                      ),
-                      child: const Text('Seed incident'),
-                    ),
-                    const Text('·',
-                        style: TextStyle(
-                            color: Color(0xFFD1D5DB), fontSize: 14)),
                     TextButton(
                       onPressed:
                           _submitting ? null : _testNotification,
@@ -464,11 +427,7 @@ class _AffectedReportSheetState
             FilledButton(
               onPressed: _submitting ? null : _submit,
               child: _submitting
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
+                  ? const DotsLoader(color: Colors.white, dotSize: 6)
                   : const Text('Submit report'),
             ),
           ],

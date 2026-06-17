@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
-import { verifyToken } from '@/lib/auth';
+import { verifyAnyToken } from '@/lib/auth';
 
 export async function GET(
   req: NextRequest,
@@ -45,7 +45,7 @@ export async function GET(
   const authHeader = req.headers.get('authorization');
   if (authHeader) {
     try {
-      const user = await verifyToken(authHeader.replace('Bearer ', ''));
+      const user = await verifyAnyToken(authHeader.replace('Bearer ', ''));
       const [existing] = await sql<{ id: string }[]>`
         SELECT id FROM reports
         WHERE incident_id = ${id} AND user_id = ${user.sub}

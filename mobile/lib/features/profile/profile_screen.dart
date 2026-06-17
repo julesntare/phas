@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_client.dart';
+import '../../core/theme.dart';
 import '../../models/rwanda_locations.dart';
 import '../../models/user.dart';
+import '../../widgets/loaders.dart';
 import '../auth/auth_provider.dart';
 
 final _allDistricts = rwandaProvinceDistricts.values
@@ -120,6 +122,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(profileProvider);
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -129,13 +132,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: _saving
-                  ? const Center(
-                      child: SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
+                  ? const Center(child: DotsLoader(dotSize: 5))
                   : FilledButton(
                       onPressed: _save,
                       style: FilledButton.styleFrom(
@@ -148,19 +145,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
       ),
       body: profileAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: DotsLoader()),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.cloud_off_outlined,
-                    size: 48, color: Color(0xFFD1D5DB)),
+                Icon(Icons.cloud_off_outlined,
+                    size: 48, color: cs.outlineVariant),
                 const SizedBox(height: 12),
                 Text('$e',
-                    style: const TextStyle(
-                        color: Color(0xFF6B7280), fontSize: 13),
+                    style: TextStyle(
+                        color: cs.onSurfaceVariant, fontSize: 13),
                     textAlign: TextAlign.center),
               ],
             ),
@@ -175,7 +172,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             children: [
               // ── Avatar header ──────────────────────────────────────────
               Container(
-                color: Colors.white,
+                color: cs.surface,
                 padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
                 child: Row(
                   children: [
@@ -187,8 +184,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               width: 64,
                               height: 64,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stack) => _InitialAvatar(
-                                  initial: displayName[0]),
+                              errorBuilder: (context, error, stack) =>
+                                  _InitialAvatar(initial: displayName[0]),
                             )
                           : _InitialAvatar(initial: displayName[0]),
                     ),
@@ -202,41 +199,81 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               Expanded(
                                 child: Text(
                                   displayName,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFF111827),
+                                    color: cs.onSurface,
                                   ),
                                 ),
                               ),
                               GestureDetector(
                                 onTap: () => _editName(displayName),
-                                child: const Icon(Icons.edit_outlined,
-                                    size: 16, color: Color(0xFF9CA3AF)),
+                                child: Icon(Icons.edit_outlined,
+                                    size: 16, color: cs.onSurfaceVariant),
                               ),
                             ],
                           ),
                           const SizedBox(height: 3),
                           if (user.phone != null)
                             Text(user.phone!,
-                                style: const TextStyle(
-                                    fontSize: 14, color: Color(0xFF6B7280)))
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    color: cs.onSurfaceVariant))
                           else if (user.email != null)
                             Text(user.email!,
-                                style: const TextStyle(
-                                    fontSize: 14, color: Color(0xFF6B7280))),
-                          if (_selectedDistrict != null || user.district != null) ...[
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    color: cs.onSurfaceVariant)),
+                          const SizedBox(height: 5),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: user.authType == 'google'
+                                  ? const Color(0xFFEFF6FF)
+                                  : const Color(0xFFF0FDF4),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  user.authType == 'google'
+                                      ? Icons.email_outlined
+                                      : Icons.phone_outlined,
+                                  size: 10,
+                                  color: user.authType == 'google'
+                                      ? const Color(0xFF3B82F6)
+                                      : const Color(0xFF16A34A),
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  user.authType == 'google'
+                                      ? 'Google account'
+                                      : 'Phone account',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: user.authType == 'google'
+                                        ? const Color(0xFF3B82F6)
+                                        : const Color(0xFF16A34A),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_selectedDistrict != null ||
+                              user.district != null) ...[
                             const SizedBox(height: 2),
                             Row(
                               children: [
-                                const Icon(Icons.location_on_outlined,
-                                    size: 12,
-                                    color: Color(0xFF9CA3AF)),
+                                Icon(Icons.location_on_outlined,
+                                    size: 12, color: cs.onSurfaceVariant),
                                 const SizedBox(width: 3),
                                 Text(_selectedDistrict ?? user.district!,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 12,
-                                        color: Color(0xFF9CA3AF))),
+                                        color: cs.onSurfaceVariant)),
                               ],
                             ),
                           ],
@@ -268,64 +305,70 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   label: 'Email',
                   value: user.email!,
                 ),
+              const _ThemeToggleTile(),
 
-              const Divider(),
+              if (user.authType != 'google') ...[
+                const Divider(),
 
-              // ── Section: Location ──────────────────────────────────────
-              const _SectionHeader(title: 'Location'),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Your district',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF374151)),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFD1D5DB)),
+                // ── Section: Location ────────────────────────────────────
+                const _SectionHeader(title: 'Location'),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Your district',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurface),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
-                      child: DropdownButton<String>(
-                        value: _selectedDistrict,
-                        isExpanded: true,
-                        underline: const SizedBox.shrink(),
-                        hint: const Text('Select your district',
-                            style: TextStyle(color: Color(0xFF9CA3AF))),
-                        items: [
-                          const DropdownMenuItem(
-                              value: null,
-                              child: Text('— Not set —',
-                                  style:
-                                      TextStyle(color: Color(0xFF9CA3AF)))),
-                          ..._allDistricts.map(
-                            (d) => DropdownMenuItem(
-                                value: d, child: Text(d)),
-                          ),
-                        ],
-                        onChanged: (val) => setState(() {
-                          _selectedDistrict = val;
-                          _dirty = val != user.district;
-                        }),
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: cs.surface,
+                          borderRadius: BorderRadius.circular(10),
+                          border:
+                              Border.all(color: cs.outlineVariant),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 4),
+                        child: DropdownButton<String>(
+                          value: _selectedDistrict,
+                          isExpanded: true,
+                          underline: const SizedBox.shrink(),
+                          dropdownColor: cs.surface,
+                          hint: Text('Select your district',
+                              style: TextStyle(
+                                  color: cs.onSurfaceVariant)),
+                          items: [
+                            DropdownMenuItem(
+                                value: null,
+                                child: Text('— Not set —',
+                                    style: TextStyle(
+                                        color: cs.onSurfaceVariant))),
+                            ..._allDistricts.map(
+                              (d) => DropdownMenuItem(
+                                  value: d, child: Text(d)),
+                            ),
+                          ],
+                          onChanged: (val) => setState(() {
+                            _selectedDistrict = val;
+                            _dirty = val != user.district;
+                          }),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Used to show relevant incident reports in your area.',
-                      style: TextStyle(
-                          fontSize: 12, color: Color(0xFF9CA3AF)),
-                    ),
-                  ],
+                      const SizedBox(height: 6),
+                      Text(
+                        'Used to show relevant incident reports in your area.',
+                        style: TextStyle(
+                            fontSize: 12, color: cs.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ], // end location section (phone only)
 
               const Divider(),
               const SizedBox(height: 8),
@@ -338,8 +381,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   icon: const Icon(Icons.logout_rounded,
                       size: 18, color: Colors.red),
                   label: const Text('Sign out',
-                      style: TextStyle(color: Colors.red,
-                          fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                          color: Colors.red, fontWeight: FontWeight.w600)),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: const BorderSide(color: Color(0xFFFECACA)),
@@ -358,6 +401,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 }
 
+// ── Reusable sub-widgets ──────────────────────────────────────────────────────
+
 class _SectionHeader extends StatelessWidget {
   final String title;
   const _SectionHeader({required this.title});
@@ -367,10 +412,10 @@ class _SectionHeader extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
         child: Text(
           title.toUpperCase(),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF9CA3AF),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             letterSpacing: 0.8,
           ),
         ),
@@ -420,10 +465,11 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       child: Container(
-        color: Colors.white,
+        color: cs.surface,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
@@ -431,10 +477,10 @@ class _SettingsTile extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
+                color: cs.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(9),
               ),
-              child: Icon(icon, size: 18, color: const Color(0xFF6B7280)),
+              child: Icon(icon, size: 18, color: cs.onSurfaceVariant),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -442,20 +488,81 @@ class _SettingsTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(label,
-                      style: const TextStyle(
-                          fontSize: 12, color: Color(0xFF9CA3AF))),
+                      style:
+                          TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                   const SizedBox(height: 1),
                   Text(value,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF111827))),
+                          color: cs.onSurface)),
                 ],
               ),
             ),
             if (onTap != null)
-              const Icon(Icons.chevron_right,
-                  size: 18, color: Color(0xFFD1D5DB)),
+              Icon(Icons.chevron_right, size: 18, color: cs.outlineVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeToggleTile extends ConsumerWidget {
+  const _ThemeToggleTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeProvider);
+    final isDark = mode == ThemeMode.dark ||
+        (mode == ThemeMode.system &&
+            MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+    final cs = Theme.of(context).colorScheme;
+
+    return InkWell(
+      onTap: () => ref.read(themeProvider.notifier).toggle(),
+      child: Container(
+        color: cs.surface,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(
+                isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+                size: 18,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Theme',
+                      style:
+                          TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                  const SizedBox(height: 1),
+                  Text(
+                    isDark ? 'Dark mode' : 'Light mode',
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: isDark,
+              onChanged: (_) =>
+                  ref.read(themeProvider.notifier).toggle(),
+            ),
           ],
         ),
       ),

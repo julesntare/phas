@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
+import { verifyAnyToken, isCitizenToken } from '@/lib/auth';
 
 export async function GET(
   _req: NextRequest,
@@ -32,7 +32,9 @@ export async function POST(
 
   let user;
   try {
-    user = await requireAuth(req.headers.get('authorization'));
+    const h = req.headers.get('authorization');
+    if (!h?.startsWith('Bearer ')) throw new Error();
+    user = await verifyAnyToken(h.slice(7));
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -54,19 +56,23 @@ export async function POST(
     return NextResponse.json({ error: 'Incident not found' }, { status: 404 });
   }
 
-  // Copy user's district for anonymous display.
-  const [userRow] = await sql<{ district: string | null }[]>`
-    SELECT district FROM users WHERE id = ${user.sub}
-  `;
+  // Copy user's district for anonymous display (Google users have no district).
+  let district: string | null = null;
+  if (!isCitizenToken(user)) {
+    const [userRow] = await sql<{ district: string | null }[]>`
+      SELECT district FROM users WHERE id = ${user.sub}
+    `;
+    district = userRow?.district ?? null;
+  }
 
   const [comment] = await sql<{ id: string; created_at: string }[]>`
     INSERT INTO incident_comments (incident_id, user_id, content, district)
-    VALUES (${id}, ${user.sub}, ${content}, ${userRow?.district ?? null})
+    VALUES (${id}, ${user.sub}, ${content}, ${district})
     RETURNING id, created_at
   `;
 
   return NextResponse.json(
-    { id: comment.id, content, district: userRow?.district ?? null, created_at: comment.created_at },
+    { id: comment.id, content, district, created_at: comment.created_at },
     { status: 201 },
   );
 }
