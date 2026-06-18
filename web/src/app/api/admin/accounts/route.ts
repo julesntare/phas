@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 import { requireAdminAuth } from '@/lib/admin-auth';
-import { hashPassword } from '@/lib/operator-auth';
+import { hashToken } from '@/lib/operator-auth';
+import { generateSetupCode, sendSetupEmail } from '@/lib/email';
 
 export async function GET(req: NextRequest) {
   try { requireAdminAuth(req); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
@@ -37,41 +38,41 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
 
-  const { type, email, name, password, platformId, authorityId, avatarUrl } = body as {
+  const { type, email, name, platformId, authorityId, avatarUrl } = body as {
     type: 'operator' | 'regulator';
     email: string;
     name?: string;
-    password: string;
     platformId?: string;
     authorityId?: string;
     avatarUrl?: string;
   };
 
-  if (!type || !email || !password) {
-    return NextResponse.json({ error: 'type, email, and password are required' }, { status: 400 });
-  }
-  if (password.length < 8) {
-    return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
+  if (!type || !email) {
+    return NextResponse.json({ error: 'type and email are required' }, { status: 400 });
   }
 
-  const hash = hashPassword(password);
+  const code = generateSetupCode();
+  const tokenHash = hashToken(code);
+  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
   if (type === 'operator') {
     if (!platformId) return NextResponse.json({ error: 'platformId required for operator' }, { status: 400 });
     const [row] = await sql<{ id: string }[]>`
-      INSERT INTO help_desk_accounts (platform_id, email, name, password_hash, avatar_url)
-      VALUES (${platformId}, ${email}, ${name ?? null}, ${hash}, ${avatarUrl ?? null})
+      INSERT INTO help_desk_accounts (platform_id, email, name, avatar_url, setup_token, setup_token_expires_at)
+      VALUES (${platformId}, ${email}, ${name ?? null}, ${avatarUrl ?? null}, ${tokenHash}, ${expiresAt})
       RETURNING id
     `;
+    await sendSetupEmail(email, code, 'operator');
     return NextResponse.json({ id: row.id, type: 'operator' }, { status: 201 });
   }
 
   if (type === 'regulator') {
     const [row] = await sql<{ id: string }[]>`
-      INSERT INTO regulator_accounts (authority_id, email, name, password_hash, avatar_url)
-      VALUES (${authorityId ?? null}, ${email}, ${name ?? null}, ${hash}, ${avatarUrl ?? null})
+      INSERT INTO regulator_accounts (authority_id, email, name, avatar_url, setup_token, setup_token_expires_at)
+      VALUES (${authorityId ?? null}, ${email}, ${name ?? null}, ${avatarUrl ?? null}, ${tokenHash}, ${expiresAt})
       RETURNING id
     `;
+    await sendSetupEmail(email, code, 'regulator');
     return NextResponse.json({ id: row.id, type: 'regulator' }, { status: 201 });
   }
 

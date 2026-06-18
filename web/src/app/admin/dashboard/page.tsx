@@ -49,7 +49,6 @@ export default function AdminDashboard() {
   // Create form
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
-  const [newPassword, setNewPassword] = useState('');
   const [newPlatformId, setNewPlatformId] = useState('');
   const [newAuthorityId, setNewAuthorityId] = useState('');
 
@@ -86,7 +85,7 @@ export default function AdminDashboard() {
   useEffect(() => { load(); }, [load]);
 
   function openCreate(type: AccountType) {
-    setNewEmail(''); setNewName(''); setNewPassword('');
+    setNewEmail(''); setNewName('');
     setNewPlatformId(platforms[0]?.id ?? '');
     setNewAuthorityId(authorities[0]?.id ?? '');
     setModalError('');
@@ -104,11 +103,10 @@ export default function AdminDashboard() {
   }
 
   async function submitCreate() {
-    if (!newEmail || !newPassword) { setModalError('Email and password are required'); return; }
-    if (newPassword.length < 8) { setModalError('Password must be at least 8 characters'); return; }
+    if (!newEmail) { setModalError('Email is required'); return; }
     setSaving(true); setModalError('');
     const body: Record<string, string> = {
-      type: modal!.type, email: newEmail, password: newPassword,
+      type: modal!.type, email: newEmail,
     };
     if (newName) body.name = newName;
     if (modal!.type === 'operator') {
@@ -436,18 +434,27 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* Password */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                  {modal.mode === 'create' ? 'Password *' : 'Reset password'}
-                </label>
-                <input
-                  type="password"
-                  value={modal.mode === 'create' ? newPassword : editPassword}
-                  onChange={e => modal.mode === 'create' ? setNewPassword(e.target.value) : setEditPassword(e.target.value)}
-                  placeholder={modal.mode === 'edit' ? 'Leave blank to keep current' : 'Min. 8 characters'}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition" />
-              </div>
+              {/* Password — create: info note; edit: reset field */}
+              {modal.mode === 'create' ? (
+                <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-3.5 py-3">
+                  <svg className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-xs text-blue-700 leading-relaxed">
+                    A setup code will be emailed to this address. They&apos;ll use it to create their own password on first sign-in.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Reset password</label>
+                  <input
+                    type="password"
+                    value={editPassword}
+                    onChange={e => setEditPassword(e.target.value)}
+                    placeholder="Leave blank to keep current"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition" />
+                </div>
+              )}
 
               {modalError && <p className="text-xs text-red-600">{modalError}</p>}
 
