@@ -8,18 +8,17 @@ interface Platform {
   id: string; name: string; category: string; base_url: string;
   authority_id: string; authority_name: string;
   contact_email: string | null; contact_name: string | null; avatar_url: string | null;
-  webhook_url: string | null; regulator_id: string | null; regulator_email: string | null;
+  webhook_url: string | null;
 }
-interface Regulator {
-  id: string; email: string; name: string | null; avatar_url: string | null;
-  authority_id: string | null; authority_name: string | null; role: string;
+interface AuthorityAccount {
+  id: string; name: string; remit_description: string | null;
+  contact_email: string | null; contact_name: string | null; avatar_url: string | null;
 }
-interface Authority { id: string; name: string }
-interface RegulatorMeta { id: string; email: string; name: string | null }
+interface AuthorityMeta { id: string; name: string }
 
-type AccountType = 'platform' | 'regulator';
+type AccountType = 'platform' | 'authority';
 type ModalMode = 'create' | 'edit';
-type Tab = 'platforms' | 'regulators';
+type Tab = 'platforms' | 'authorities';
 
 function Avatar({ url, name }: { url: string | null; name: string | null }) {
   if (url) return (
@@ -36,14 +35,13 @@ function Avatar({ url, name }: { url: string | null; name: string | null }) {
 export default function AdminDashboard() {
   const router = useRouter();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
-  const [regulators, setRegulators] = useState<Regulator[]>([]);
-  const [authorities, setAuthorities] = useState<Authority[]>([]);
-  const [regulatorsMeta, setRegulatorsMeta] = useState<RegulatorMeta[]>([]);
+  const [authoritiesData, setAuthoritiesData] = useState<AuthorityAccount[]>([]);
+  const [authoritiesMeta, setAuthoritiesMeta] = useState<AuthorityMeta[]>([]);
   const [tab, setTab] = useState<Tab>('platforms');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [modal, setModal] = useState<{ mode: ModalMode; type: AccountType; item?: Platform | Regulator } | null>(null);
+  const [modal, setModal] = useState<{ mode: ModalMode; type: AccountType; item?: Platform | AuthorityAccount } | null>(null);
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState('');
 
@@ -55,16 +53,16 @@ export default function AdminDashboard() {
   const [fContactEmail, setFContactEmail] = useState('');
   const [fContactName, setFContactName] = useState('');
   const [fWebhookUrl, setFWebhookUrl] = useState('');
-  const [fRegulatorId, setFRegulatorId] = useState('');
   const [fAvatarUrl, setFAvatarUrl] = useState<string | null>(null);
   const [fPassword, setFPassword] = useState('');
 
-  // Regulator form fields
-  const [rEmail, setREmail] = useState('');
-  const [rName, setRName] = useState('');
-  const [rAuthorityId, setRAuthorityId] = useState('');
-  const [rAvatarUrl, setRAvatarUrl] = useState<string | null>(null);
-  const [rPassword, setRPassword] = useState('');
+  // Authority form fields
+  const [aName, setAName] = useState('');
+  const [aRemitDescription, setARemitDescription] = useState('');
+  const [aContactEmail, setAContactEmail] = useState('');
+  const [aContactName, setAContactName] = useState('');
+  const [aAvatarUrl, setAAvatarUrl] = useState<string | null>(null);
+  const [aPassword, setAPassword] = useState('');
 
   const [avatarUploading, setAvatarUploading] = useState(false);
 
@@ -83,9 +81,8 @@ export default function AdminDashboard() {
       const accounts = await accountsRes.json();
       const meta = await metaRes.json();
       setPlatforms(accounts.platforms ?? []);
-      setRegulators(accounts.regulators ?? []);
-      setAuthorities(meta.authorities ?? []);
-      setRegulatorsMeta(meta.regulators ?? []);
+      setAuthoritiesData(accounts.authorities ?? []);
+      setAuthoritiesMeta(meta.authorities ?? []);
     } catch { setError('Failed to load data'); }
     finally { setLoading(false); }
   }, [router]);
@@ -95,8 +92,7 @@ export default function AdminDashboard() {
   function openCreatePlatform() {
     setFName(''); setFBaseUrl(''); setFCategory(''); setFContactEmail('');
     setFContactName(''); setFWebhookUrl(''); setFPassword(''); setFAvatarUrl(null);
-    setFAuthorityId(authorities[0]?.id ?? '');
-    setFRegulatorId('');
+    setFAuthorityId(authoritiesMeta[0]?.id ?? '');
     setModalError('');
     setModal({ mode: 'create', type: 'platform' });
   }
@@ -107,24 +103,25 @@ export default function AdminDashboard() {
     setFContactEmail(p.contact_email ?? '');
     setFContactName(p.contact_name ?? '');
     setFWebhookUrl(p.webhook_url ?? '');
-    setFRegulatorId(p.regulator_id ?? '');
     setFAvatarUrl(p.avatar_url);
     setFPassword('');
     setModalError('');
     setModal({ mode: 'edit', type: 'platform', item: p });
   }
 
-  function openCreateRegulator() {
-    setREmail(''); setRName(''); setRAuthorityId(''); setRAvatarUrl(null); setRPassword('');
+  function openCreateAuthority() {
+    setAName(''); setARemitDescription(''); setAContactEmail(''); setAContactName('');
+    setAAvatarUrl(null); setAPassword('');
     setModalError('');
-    setModal({ mode: 'create', type: 'regulator' });
+    setModal({ mode: 'create', type: 'authority' });
   }
 
-  function openEditRegulator(r: Regulator) {
-    setREmail(r.email); setRName(r.name ?? '');
-    setRAuthorityId(r.authority_id ?? ''); setRAvatarUrl(r.avatar_url); setRPassword('');
+  function openEditAuthority(a: AuthorityAccount) {
+    setAName(a.name); setARemitDescription(a.remit_description ?? '');
+    setAContactEmail(a.contact_email ?? ''); setAContactName(a.contact_name ?? '');
+    setAAvatarUrl(a.avatar_url); setAPassword('');
     setModalError('');
-    setModal({ mode: 'edit', type: 'regulator', item: r });
+    setModal({ mode: 'edit', type: 'authority', item: a });
   }
 
   async function submitCreatePlatform() {
@@ -141,7 +138,6 @@ export default function AdminDashboard() {
           authorityId: fAuthorityId, contactEmail: fContactEmail,
           ...(fContactName && { contactName: fContactName }),
           ...(fWebhookUrl && { webhookUrl: fWebhookUrl }),
-          ...(fRegulatorId && { regulatorId: fRegulatorId }),
         }),
       });
       const data = await res.json();
@@ -163,7 +159,6 @@ export default function AdminDashboard() {
     if (fContactEmail !== (orig.contact_email ?? '')) body.contactEmail = fContactEmail;
     if (fContactName !== (orig.contact_name ?? '')) body.contactName = fContactName;
     if (fWebhookUrl !== (orig.webhook_url ?? '')) body.webhookUrl = fWebhookUrl || null;
-    if (fRegulatorId !== (orig.regulator_id ?? '')) body.regulatorId = fRegulatorId || null;
     if (fAvatarUrl !== orig.avatar_url && fAvatarUrl !== null) body.avatarUrl = fAvatarUrl;
     if (fPassword) {
       if (fPassword.length < 8) { setModalError('Password must be at least 8 characters'); setSaving(false); return; }
@@ -182,17 +177,18 @@ export default function AdminDashboard() {
     finally { setSaving(false); }
   }
 
-  async function submitCreateRegulator() {
-    if (!rEmail) { setModalError('Email is required'); return; }
+  async function submitCreateAuthority() {
+    if (!aName || !aContactEmail) { setModalError('Name and contact email are required'); return; }
     setSaving(true); setModalError('');
     try {
       const res = await fetch('/api/admin/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getSecret()}` },
         body: JSON.stringify({
-          type: 'regulator', email: rEmail,
-          ...(rName && { name: rName }),
-          ...(rAuthorityId && { authorityId: rAuthorityId }),
+          type: 'authority', name: aName,
+          ...(aRemitDescription && { remitDescription: aRemitDescription }),
+          contactEmail: aContactEmail,
+          ...(aContactName && { contactName: aContactName }),
         }),
       });
       const data = await res.json();
@@ -202,18 +198,19 @@ export default function AdminDashboard() {
     finally { setSaving(false); }
   }
 
-  async function submitEditRegulator() {
+  async function submitEditAuthority() {
     if (!modal?.item) return;
-    const orig = modal.item as Regulator;
+    const orig = modal.item as AuthorityAccount;
     setSaving(true); setModalError('');
-    const body: Record<string, string | null> = { type: 'regulator' };
-    if (rEmail !== orig.email) body.email = rEmail;
-    if (rName !== (orig.name ?? '')) body.name = rName;
-    if (rAuthorityId !== (orig.authority_id ?? '')) body.authorityId = rAuthorityId || null;
-    if (rAvatarUrl !== orig.avatar_url && rAvatarUrl !== null) body.avatarUrl = rAvatarUrl;
-    if (rPassword) {
-      if (rPassword.length < 8) { setModalError('Password must be at least 8 characters'); setSaving(false); return; }
-      body.password = rPassword;
+    const body: Record<string, string | null> = { type: 'authority' };
+    if (aName !== orig.name) body.name = aName;
+    if (aRemitDescription !== (orig.remit_description ?? '')) body.remitDescription = aRemitDescription || null;
+    if (aContactEmail !== (orig.contact_email ?? '')) body.contactEmail = aContactEmail;
+    if (aContactName !== (orig.contact_name ?? '')) body.contactName = aContactName;
+    if (aAvatarUrl !== orig.avatar_url && aAvatarUrl !== null) body.avatarUrl = aAvatarUrl;
+    if (aPassword) {
+      if (aPassword.length < 8) { setModalError('Password must be at least 8 characters'); setSaving(false); return; }
+      body.password = aPassword;
     }
     try {
       const res = await fetch(`/api/admin/accounts/${orig.id}`, {
@@ -228,7 +225,7 @@ export default function AdminDashboard() {
     finally { setSaving(false); }
   }
 
-  async function uploadAvatar(file: File, forType: 'platform' | 'regulator') {
+  async function uploadAvatar(file: File, forType: 'platform' | 'authority') {
     setAvatarUploading(true);
     try {
       const fd = new FormData();
@@ -241,7 +238,7 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Upload failed');
       if (forType === 'platform') setFAvatarUrl(data.url);
-      else setRAvatarUrl(data.url);
+      else setAAvatarUrl(data.url);
     } catch (e: unknown) {
       setModalError(e instanceof Error ? e.message : 'Upload failed');
     } finally { setAvatarUploading(false); }
@@ -278,8 +275,8 @@ export default function AdminDashboard() {
 
         <div className="flex items-center gap-1 mb-6 bg-white border border-gray-100 rounded-xl p-1 shadow-sm w-fit">
           {([
-            { key: 'platforms',  label: 'Platforms',  count: platforms.length },
-            { key: 'regulators', label: 'Regulators', count: regulators.length },
+            { key: 'platforms',   label: 'Platforms',   count: platforms.length },
+            { key: 'authorities', label: 'Authorities', count: authoritiesData.length },
           ] as { key: Tab; label: string; count: number }[]).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${
@@ -352,46 +349,51 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {/* Regulators tab */}
-        {tab === 'regulators' && (
+        {/* Authorities tab */}
+        {tab === 'authorities' && (
           <section>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-xs text-gray-400">{regulators.length} account{regulators.length !== 1 ? 's' : ''}</p>
-              <button onClick={openCreateRegulator}
+              <p className="text-xs text-gray-400">{authoritiesData.length} authorit{authoritiesData.length !== 1 ? 'ies' : 'y'}</p>
+              <button onClick={openCreateAuthority}
                 className="flex items-center gap-1.5 px-4 py-2 bg-brand text-white text-sm font-semibold rounded-xl hover:bg-brand-dark transition-colors">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Add regulator
+                Add authority
               </button>
             </div>
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              {regulators.length === 0 ? (
-                <p className="text-center text-sm text-gray-400 py-10">No regulators yet</p>
+              {authoritiesData.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-10">No authorities yet</p>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 text-xs text-gray-400 font-semibold uppercase tracking-wide">
-                      <th className="text-left px-5 py-3">Account</th>
-                      <th className="text-left px-4 py-3 hidden sm:table-cell">Authority</th>
+                      <th className="text-left px-5 py-3">Authority</th>
+                      <th className="text-left px-4 py-3 hidden md:table-cell">Remit</th>
+                      <th className="text-left px-4 py-3 hidden sm:table-cell">Contact</th>
                       <th className="px-5 py-3" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {regulators.map(reg => (
-                      <tr key={reg.id} className="hover:bg-gray-50/60 transition-colors">
+                    {authoritiesData.map(a => (
+                      <tr key={a.id} className="hover:bg-gray-50/60 transition-colors">
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-3">
-                            <Avatar url={reg.avatar_url} name={reg.name ?? reg.email} />
-                            <div className="min-w-0">
-                              <p className="font-semibold text-gray-900 truncate">{reg.name ?? <span className="text-gray-400 italic">No name</span>}</p>
-                              <p className="text-xs text-gray-400 truncate">{reg.email}</p>
-                            </div>
+                            <Avatar url={a.avatar_url} name={a.name} />
+                            <p className="font-semibold text-gray-900 truncate">{a.name}</p>
                           </div>
                         </td>
-                        <td className="px-4 py-3 hidden sm:table-cell text-gray-600 text-xs">{reg.authority_name ?? '—'}</td>
+                        <td className="px-4 py-3 hidden md:table-cell text-xs text-gray-400 max-w-55 truncate">
+                          {a.remit_description ?? <span className="italic">—</span>}
+                        </td>
+                        <td className="px-4 py-3 hidden sm:table-cell text-xs text-gray-500">
+                          {a.contact_email
+                            ? <span>{a.contact_name ? `${a.contact_name} · ` : ''}{a.contact_email}</span>
+                            : <span className="italic text-gray-300">No contact set</span>}
+                        </td>
                         <td className="px-5 py-3 text-right">
-                          <button onClick={() => openEditRegulator(reg)}
+                          <button onClick={() => openEditAuthority(a)}
                             className="text-xs text-gray-500 border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50 transition-colors">
                             Edit
                           </button>
@@ -427,7 +429,6 @@ export default function AdminDashboard() {
               {/* ── PLATFORM MODAL ── */}
               {modal.type === 'platform' && (
                 <>
-                  {/* Avatar (edit only) */}
                   {modal.mode === 'edit' && (
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 mb-2">Logo</label>
@@ -459,7 +460,7 @@ export default function AdminDashboard() {
                   <Field label="Authority *">
                     <select value={fAuthorityId} onChange={e => setFAuthorityId(e.target.value)} className={selectCls}>
                       <option value="">— Select authority —</option>
-                      {authorities.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      {authoritiesMeta.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                     </select>
                   </Field>
                   <Field label="Contact email *">
@@ -470,12 +471,6 @@ export default function AdminDashboard() {
                   </Field>
                   <Field label="Webhook URL">
                     <input value={fWebhookUrl} onChange={e => setFWebhookUrl(e.target.value)} type="url" placeholder="https://… (optional)" className={inputCls} />
-                  </Field>
-                  <Field label="Regulator">
-                    <select value={fRegulatorId} onChange={e => setFRegulatorId(e.target.value)} className={selectCls}>
-                      <option value="">— None —</option>
-                      {regulatorsMeta.map(r => <option key={r.id} value={r.id}>{r.name ?? r.email}</option>)}
-                    </select>
                   </Field>
 
                   {modal.mode === 'create' ? (
@@ -495,39 +490,39 @@ export default function AdminDashboard() {
                 </>
               )}
 
-              {/* ── REGULATOR MODAL ── */}
-              {modal.type === 'regulator' && (
+              {/* ── AUTHORITY MODAL ── */}
+              {modal.type === 'authority' && (
                 <>
                   {modal.mode === 'edit' && (
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 mb-2">Avatar</label>
                       <div className="flex items-center gap-3">
-                        {rAvatarUrl
+                        {aAvatarUrl
                           // eslint-disable-next-line @next/next/no-img-element
-                          ? <img src={rAvatarUrl} alt="avatar" className="w-14 h-14 rounded-xl object-cover border border-gray-200" />
-                          : <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center text-xl text-gray-400 font-bold">{(rName || rEmail || '?')[0]?.toUpperCase()}</div>
+                          ? <img src={aAvatarUrl} alt="avatar" className="w-14 h-14 rounded-xl object-cover border border-gray-200" />
+                          : <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center text-xl text-gray-400 font-bold">{(aName || '?')[0]?.toUpperCase()}</div>
                         }
                         <label className={`cursor-pointer px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors ${avatarUploading ? 'opacity-50 pointer-events-none' : ''}`}>
                           {avatarUploading ? 'Uploading…' : 'Upload avatar'}
                           <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                            onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(f, 'regulator'); e.target.value = ''; }} />
+                            onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(f, 'authority'); e.target.value = ''; }} />
                         </label>
-                        {rAvatarUrl && <button onClick={() => setRAvatarUrl(null)} className="text-xs text-red-400 hover:text-red-600">Remove</button>}
+                        {aAvatarUrl && <button onClick={() => setAAvatarUrl(null)} className="text-xs text-red-400 hover:text-red-600">Remove</button>}
                       </div>
                     </div>
                   )}
 
-                  <Field label="Email *">
-                    <input value={rEmail} onChange={e => setREmail(e.target.value)} type="email" placeholder="regulator@authority.rw" className={inputCls} />
+                  <Field label="Authority name *">
+                    <input value={aName} onChange={e => setAName(e.target.value)} placeholder="e.g. RURA" className={inputCls} />
                   </Field>
-                  <Field label="Display name">
-                    <input value={rName} onChange={e => setRName(e.target.value)} placeholder="e.g. RURA Oversight" className={inputCls} />
+                  <Field label="Remit description">
+                    <input value={aRemitDescription} onChange={e => setARemitDescription(e.target.value)} placeholder="e.g. Telecom & internet regulation" className={inputCls} />
                   </Field>
-                  <Field label="Authority">
-                    <select value={rAuthorityId} onChange={e => setRAuthorityId(e.target.value)} className={selectCls}>
-                      <option value="">— None (cross-authority) —</option>
-                      {authorities.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
+                  <Field label="Contact email *">
+                    <input value={aContactEmail} onChange={e => setAContactEmail(e.target.value)} type="email" placeholder="portal@authority.rw" className={inputCls} />
+                  </Field>
+                  <Field label="Contact name">
+                    <input value={aContactName} onChange={e => setAContactName(e.target.value)} placeholder="e.g. RURA Oversight Team" className={inputCls} />
                   </Field>
 
                   {modal.mode === 'create' ? (
@@ -541,7 +536,7 @@ export default function AdminDashboard() {
                     </div>
                   ) : (
                     <Field label="Reset password">
-                      <input type="password" value={rPassword} onChange={e => setRPassword(e.target.value)} placeholder="Leave blank to keep current" className={inputCls} />
+                      <input type="password" value={aPassword} onChange={e => setAPassword(e.target.value)} placeholder="Leave blank to keep current" className={inputCls} />
                     </Field>
                   )}
                 </>
@@ -558,7 +553,7 @@ export default function AdminDashboard() {
                   onClick={
                     modal.type === 'platform'
                       ? (modal.mode === 'create' ? submitCreatePlatform : submitEditPlatform)
-                      : (modal.mode === 'create' ? submitCreateRegulator : submitEditRegulator)
+                      : (modal.mode === 'create' ? submitCreateAuthority : submitEditAuthority)
                   }
                   disabled={saving}
                   className="flex-1 py-2.5 bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors">

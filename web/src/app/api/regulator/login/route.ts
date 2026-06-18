@@ -11,34 +11,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'email and password required' }, { status: 400 });
   }
 
-  const [account] = await sql<{
-    id: string; email: string; name: string | null;
-    authority_id: string | null; password_hash: string | null;
+  const [authority] = await sql<{
+    id: string; contact_email: string; contact_name: string | null; password_hash: string | null;
   }[]>`
-    SELECT id, email, name, authority_id, password_hash
-    FROM regulator_accounts
-    WHERE email = ${email}
+    SELECT id, contact_email, contact_name, password_hash
+    FROM authorities
+    WHERE contact_email = ${email}
     LIMIT 1
   `;
 
-  if (!account || !account.password_hash || !verifyPassword(password, account.password_hash)) {
+  if (!authority || !authority.password_hash || !verifyPassword(password, authority.password_hash)) {
     return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
   }
 
   const token = await signRegulatorToken({
-    sub: account.id,
-    email: account.email,
-    authorityId: account.authority_id,
+    sub: authority.id,
+    email: authority.contact_email,
+    authorityId: authority.id,
   });
 
   const expiresAt = new Date(Date.now() + Number(process.env.JWT_EXPIRY_SECONDS ?? 86400) * 1000);
   await sql`
-    INSERT INTO regulator_sessions (regulator_id, token_hash, expires_at)
-    VALUES (${account.id}, ${hashToken(token)}, ${expiresAt})
+    INSERT INTO authority_sessions (authority_id, token_hash, expires_at)
+    VALUES (${authority.id}, ${hashToken(token)}, ${expiresAt})
   `;
 
   return NextResponse.json({
     token,
-    regulator: { id: account.id, email: account.email, name: account.name },
+    regulator: { id: authority.id, email: authority.contact_email, name: authority.contact_name },
   });
 }

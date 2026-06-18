@@ -12,15 +12,15 @@ export async function PATCH(
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
 
-  const { type } = body as { type: 'platform' | 'regulator' };
+  const { type } = body as { type: 'platform' | 'authority' };
   if (!type) return NextResponse.json({ error: 'type required' }, { status: 400 });
   const { id } = await params;
 
   if (type === 'platform') {
-    const { name, baseUrl, category, authorityId, contactEmail, contactName, webhookUrl, regulatorId, avatarUrl, password } = body as {
+    const { name, baseUrl, category, authorityId, contactEmail, contactName, webhookUrl, avatarUrl, password } = body as {
       name?: string; baseUrl?: string; category?: string; authorityId?: string;
       contactEmail?: string; contactName?: string; webhookUrl?: string;
-      regulatorId?: string | null; avatarUrl?: string; password?: string;
+      avatarUrl?: string; password?: string;
     };
 
     if (name !== undefined) await sql`UPDATE platforms SET name = ${name} WHERE id = ${id}`;
@@ -30,7 +30,6 @@ export async function PATCH(
     if (contactEmail !== undefined) await sql`UPDATE platforms SET contact_email = ${contactEmail.trim().toLowerCase()} WHERE id = ${id}`;
     if (contactName !== undefined) await sql`UPDATE platforms SET contact_name = ${contactName} WHERE id = ${id}`;
     if (webhookUrl !== undefined) await sql`UPDATE platforms SET webhook_url = ${webhookUrl || null} WHERE id = ${id}`;
-    if (regulatorId !== undefined) await sql`UPDATE platforms SET regulator_id = ${regulatorId} WHERE id = ${id}`;
     if (avatarUrl !== undefined) await sql`UPDATE platforms SET avatar_url = ${avatarUrl} WHERE id = ${id}`;
     if (password) {
       if (password.length < 8) return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
@@ -39,21 +38,23 @@ export async function PATCH(
     return NextResponse.json({ ok: true });
   }
 
-  if (type === 'regulator') {
-    const { email, name, avatarUrl, password, authorityId } = body as {
-      email?: string; name?: string; avatarUrl?: string; password?: string; authorityId?: string;
+  if (type === 'authority') {
+    const { name, remitDescription, contactEmail, contactName, avatarUrl, password } = body as {
+      name?: string; remitDescription?: string; contactEmail?: string;
+      contactName?: string; avatarUrl?: string; password?: string;
     };
 
-    if (email) await sql`UPDATE regulator_accounts SET email = ${email.trim().toLowerCase()} WHERE id = ${id}`;
-    if (name !== undefined) await sql`UPDATE regulator_accounts SET name = ${name} WHERE id = ${id}`;
-    if (avatarUrl !== undefined) await sql`UPDATE regulator_accounts SET avatar_url = ${avatarUrl} WHERE id = ${id}`;
+    if (name !== undefined) await sql`UPDATE authorities SET name = ${name} WHERE id = ${id}`;
+    if (remitDescription !== undefined) await sql`UPDATE authorities SET remit_description = ${remitDescription} WHERE id = ${id}`;
+    if (contactEmail !== undefined) await sql`UPDATE authorities SET contact_email = ${contactEmail.trim().toLowerCase()} WHERE id = ${id}`;
+    if (contactName !== undefined) await sql`UPDATE authorities SET contact_name = ${contactName} WHERE id = ${id}`;
+    if (avatarUrl !== undefined) await sql`UPDATE authorities SET avatar_url = ${avatarUrl} WHERE id = ${id}`;
     if (password) {
       if (password.length < 8) return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
-      await sql`UPDATE regulator_accounts SET password_hash = ${hashPassword(password)} WHERE id = ${id}`;
+      await sql`UPDATE authorities SET password_hash = ${hashPassword(password)} WHERE id = ${id}`;
     }
-    if (authorityId !== undefined) await sql`UPDATE regulator_accounts SET authority_id = ${authorityId} WHERE id = ${id}`;
     return NextResponse.json({ ok: true });
   }
 
-  return NextResponse.json({ error: 'type must be platform or regulator' }, { status: 400 });
+  return NextResponse.json({ error: 'type must be platform or authority' }, { status: 400 });
 }
