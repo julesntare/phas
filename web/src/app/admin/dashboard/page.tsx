@@ -53,6 +53,7 @@ export default function AdminDashboard() {
   const [newAuthorityId, setNewAuthorityId] = useState('');
 
   // Edit form
+  const [editEmail, setEditEmail] = useState('');
   const [editName, setEditName] = useState('');
   const [editPlatformId, setEditPlatformId] = useState('');
   const [editAuthorityId, setEditAuthorityId] = useState('');
@@ -93,6 +94,7 @@ export default function AdminDashboard() {
   }
 
   function openEdit(type: AccountType, account: Operator | Regulator) {
+    setEditEmail(account.email);
     setEditName(account.name ?? '');
     setEditAvatarUrl(account.avatar_url);
     setEditPassword('');
@@ -132,7 +134,9 @@ export default function AdminDashboard() {
   async function submitEdit() {
     if (!modal?.account) return;
     setSaving(true); setModalError('');
+    if (!editEmail) { setModalError('Email is required'); setSaving(false); return; }
     const body: Record<string, string> = { type: modal.type };
+    if (editEmail !== modal.account.email) body.email = editEmail;
     if (editName !== (modal.account.name ?? '')) body.name = editName;
     if (editAvatarUrl !== modal.account.avatar_url && editAvatarUrl !== null) body.avatarUrl = editAvatarUrl;
     if (editPassword) {
@@ -380,15 +384,16 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* Email (create only) */}
-              {modal.mode === 'create' && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Email *</label>
-                  <input value={newEmail} onChange={e => setNewEmail(e.target.value)}
-                    type="email" placeholder="name@organization.rw"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition" />
-                </div>
-              )}
+              {/* Email */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Email *</label>
+                <input
+                  type="email"
+                  value={modal.mode === 'create' ? newEmail : editEmail}
+                  onChange={e => modal.mode === 'create' ? setNewEmail(e.target.value) : setEditEmail(e.target.value)}
+                  placeholder="name@organization.rw"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition" />
+              </div>
 
               {/* Name */}
               <div>

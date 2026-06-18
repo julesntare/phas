@@ -12,8 +12,9 @@ export async function PATCH(
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
 
-  const { type, name, avatarUrl, password, platformId, authorityId } = body as {
+  const { type, email, name, avatarUrl, password, platformId, authorityId } = body as {
     type: 'operator' | 'regulator';
+    email?: string;
     name?: string;
     avatarUrl?: string;
     password?: string;
@@ -25,6 +26,7 @@ export async function PATCH(
   const { id } = await params;
 
   if (type === 'operator') {
+    if (email) await sql`UPDATE help_desk_accounts SET email = ${email.trim().toLowerCase()} WHERE id = ${id}`;
     if (name !== undefined) await sql`UPDATE help_desk_accounts SET name = ${name} WHERE id = ${id}`;
     if (avatarUrl !== undefined) await sql`UPDATE help_desk_accounts SET avatar_url = ${avatarUrl} WHERE id = ${id}`;
     if (password) await sql`UPDATE help_desk_accounts SET password_hash = ${hashPassword(password)} WHERE id = ${id}`;
@@ -33,6 +35,7 @@ export async function PATCH(
   }
 
   if (type === 'regulator') {
+    if (email) await sql`UPDATE regulator_accounts SET email = ${email.trim().toLowerCase()} WHERE id = ${id}`;
     if (name !== undefined) await sql`UPDATE regulator_accounts SET name = ${name} WHERE id = ${id}`;
     if (avatarUrl !== undefined) await sql`UPDATE regulator_accounts SET avatar_url = ${avatarUrl} WHERE id = ${id}`;
     if (password) await sql`UPDATE regulator_accounts SET password_hash = ${hashPassword(password)} WHERE id = ${id}`;
