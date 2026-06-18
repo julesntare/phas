@@ -15,50 +15,50 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
   }
 
-  const [account] = await sql<{
-    id: string; email: string; name: string | null; platform_id: string;
+  const [platform] = await sql<{
+    id: string; contact_email: string; contact_name: string | null;
     setup_token: string | null; setup_token_expires_at: Date | null;
   }[]>`
-    SELECT id, email, name, platform_id, setup_token, setup_token_expires_at
-    FROM help_desk_accounts
-    WHERE email = ${email}
+    SELECT id, contact_email, contact_name, setup_token, setup_token_expires_at
+    FROM platforms
+    WHERE contact_email = ${email}
     LIMIT 1
   `;
 
-  if (!account?.setup_token) {
+  if (!platform?.setup_token) {
     return NextResponse.json({ error: 'Invalid or expired code' }, { status: 400 });
   }
 
-  if (account.setup_token_expires_at && new Date() > new Date(account.setup_token_expires_at)) {
+  if (platform.setup_token_expires_at && new Date() > new Date(platform.setup_token_expires_at)) {
     return NextResponse.json({ error: 'Code has expired — please contact your admin' }, { status: 400 });
   }
 
-  if (account.setup_token !== hashToken(code)) {
+  if (platform.setup_token !== hashToken(code)) {
     return NextResponse.json({ error: 'Invalid or expired code' }, { status: 400 });
   }
 
   await sql`
-    UPDATE help_desk_accounts
+    UPDATE platforms
     SET password_hash = ${hashPassword(newPassword)},
         setup_token = NULL,
         setup_token_expires_at = NULL
-    WHERE id = ${account.id}
+    WHERE id = ${platform.id}
   `;
 
   const token = await signOperatorToken({
-    sub: account.id,
-    email: account.email,
-    platformId: account.platform_id,
+    sub: platform.id,
+    email: platform.contact_email,
+    platformId: platform.id,
   });
 
   const expiresAt = new Date(Date.now() + Number(process.env.JWT_EXPIRY_SECONDS ?? 86400) * 1000);
   await sql`
-    INSERT INTO operator_sessions (operator_id, token_hash, expires_at)
-    VALUES (${account.id}, ${hashToken(token)}, ${expiresAt})
+    INSERT INTO platform_sessions (platform_id, token_hash, expires_at)
+    VALUES (${platform.id}, ${hashToken(token)}, ${expiresAt})
   `;
 
   return NextResponse.json({
     token,
-    operator: { id: account.id, email: account.email, name: account.name },
+    operator: { id: platform.id, email: platform.contact_email, name: platform.contact_name },
   });
 }

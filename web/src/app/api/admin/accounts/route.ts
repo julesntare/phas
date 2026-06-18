@@ -7,15 +7,20 @@ import { generateSetupCode, sendSetupEmail } from '@/lib/email';
 export async function GET(req: NextRequest) {
   try { requireAdminAuth(req); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
 
-  const operators = await sql<{
-    id: string; email: string; name: string | null; avatar_url: string | null;
-    platform_id: string; platform_name: string; role: string;
+  const platforms = await sql<{
+    id: string; name: string; category: string; base_url: string;
+    authority_id: string; authority_name: string;
+    contact_email: string | null; contact_name: string | null; avatar_url: string | null;
+    webhook_url: string | null; regulator_id: string | null; regulator_email: string | null;
   }[]>`
-    SELECT h.id, h.email, h.name, h.avatar_url, h.platform_id,
-           p.name AS platform_name, h.role
-    FROM help_desk_accounts h
-    JOIN platforms p ON p.id = h.platform_id
-    ORDER BY p.name, h.email
+    SELECT p.id, p.name, p.category, p.base_url,
+           p.authority_id, a.name AS authority_name,
+           p.contact_email, p.contact_name, p.avatar_url,
+           p.webhook_url, p.regulator_id, r.email AS regulator_email
+    FROM platforms p
+    JOIN authorities a ON a.id = p.authority_id
+    LEFT JOIN regulator_accounts r ON r.id = p.regulator_id
+    ORDER BY p.name
   `;
 
   const regulators = await sql<{
@@ -29,7 +34,7 @@ export async function GET(req: NextRequest) {
     ORDER BY r.email
   `;
 
-  return NextResponse.json({ operators, regulators });
+  return NextResponse.json({ platforms, regulators });
 }
 
 export async function POST(req: NextRequest) {
@@ -38,43 +43,55 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
 
-  const { type, email, name, platformId, authorityId, avatarUrl } = body as {
-    type: 'operator' | 'regulator';
-    email: string;
-    name?: string;
-    platformId?: string;
-    authorityId?: string;
-    avatarUrl?: string;
-  };
+  const { type } = body as { type: 'platform' | 'regulator' };
 
-  if (!type || !email) {
-    return NextResponse.json({ error: 'type and email are required' }, { status: 400 });
-  }
+  if (type === 'platform') {
+    const { name, baseUrl, category, authorityId, contactEmail, contactName, webhookUrl, regulatorId } = body as {
+      name: string; baseUrl: string; category: string; authorityId: string;
+      contactEmail: string; contactName?: string; webhookUrl?: string; regulatorId?: string;
+    };
 
-  const code = generateSetupCode();
-  const tokenHash = hashToken(code);
-  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    if (!name || !baseUrl || !category || !authorityId || !contactEmail) {
+      return NextResponse.json({ error: 'name, baseUrl, category, authorityId, and contactEmail are required' }, { status: 400 });
+    }
 
-  if (type === 'operator') {
-    if (!platformId) return NextResponse.json({ error: 'platformId required for operator' }, { status: 400 });
+    const code = generateSetupCode();
+    const tokenHash = hashToken(code);
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
     const [row] = await sql<{ id: string }[]>`
-      INSERT INTO help_desk_accounts (platform_id, email, name, avatar_url, setup_token, setup_token_expires_at)
-      VALUES (${platformId}, ${email}, ${name ?? null}, ${avatarUrl ?? null}, ${tokenHash}, ${expiresAt})
+      INSERT INTO platforms
+        (name, base_url, category, authority_id, contact_email, contact_name, webhook_url, regulator_id, setup_token, setup_token_expires_at)
+      VALUES
+        (${name}, ${baseUrl}, ${category}, ${authorityId}, ${contactEmail.trim().toLowerCase()},
+         ${contactName ?? null}, ${webhookUrl ?? null}, ${regulatorId ?? null}, ${tokenHash}, ${expiresAt})
       RETURNING id
     `;
-    await sendSetupEmail(email, code, 'operator');
-    return NextResponse.json({ id: row.id, type: 'operator' }, { status: 201 });
+
+    await sendSetupEmail(contactEmail, code, 'operator');
+    return NextResponse.json({ id: row.id, type: 'platform' }, { status: 201 });
   }
 
   if (type === 'regulator') {
+    const { email, name, authorityId, avatarUrl } = body as {
+      email: string; name?: string; authorityId?: string; avatarUrl?: string;
+    };
+
+    if (!email) return NextResponse.json({ error: 'email is required' }, { status: 400 });
+
+    const code = generateSetupCode();
+    const tokenHash = hashToken(code);
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
     const [row] = await sql<{ id: string }[]>`
       INSERT INTO regulator_accounts (authority_id, email, name, avatar_url, setup_token, setup_token_expires_at)
-      VALUES (${authorityId ?? null}, ${email}, ${name ?? null}, ${avatarUrl ?? null}, ${tokenHash}, ${expiresAt})
+      VALUES (${authorityId ?? null}, ${email.trim().toLowerCase()}, ${name ?? null}, ${avatarUrl ?? null}, ${tokenHash}, ${expiresAt})
       RETURNING id
     `;
+
     await sendSetupEmail(email, code, 'regulator');
     return NextResponse.json({ id: row.id, type: 'regulator' }, { status: 201 });
   }
 
-  return NextResponse.json({ error: 'type must be operator or regulator' }, { status: 400 });
+  return NextResponse.json({ error: 'type must be platform or regulator' }, { status: 400 });
 }

@@ -4,20 +4,22 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
-interface Operator {
-  id: string; email: string; name: string | null; avatar_url: string | null;
-  platform_id: string; platform_name: string; role: string;
+interface Platform {
+  id: string; name: string; category: string; base_url: string;
+  authority_id: string; authority_name: string;
+  contact_email: string | null; contact_name: string | null; avatar_url: string | null;
+  webhook_url: string | null; regulator_id: string | null; regulator_email: string | null;
 }
 interface Regulator {
   id: string; email: string; name: string | null; avatar_url: string | null;
   authority_id: string | null; authority_name: string | null; role: string;
 }
-interface Platform { id: string; name: string; authority_name: string }
 interface Authority { id: string; name: string }
+interface RegulatorMeta { id: string; email: string; name: string | null }
 
-type AccountType = 'operator' | 'regulator';
+type AccountType = 'platform' | 'regulator';
 type ModalMode = 'create' | 'edit';
-type Tab = 'operators' | 'regulators';
+type Tab = 'platforms' | 'regulators';
 
 function Avatar({ url, name }: { url: string | null; name: string | null }) {
   if (url) return (
@@ -33,33 +35,38 @@ function Avatar({ url, name }: { url: string | null; name: string | null }) {
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [operators, setOperators] = useState<Operator[]>([]);
-  const [regulators, setRegulators] = useState<Regulator[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
+  const [regulators, setRegulators] = useState<Regulator[]>([]);
   const [authorities, setAuthorities] = useState<Authority[]>([]);
-  const [tab, setTab] = useState<Tab>('operators');
+  const [regulatorsMeta, setRegulatorsMeta] = useState<RegulatorMeta[]>([]);
+  const [tab, setTab] = useState<Tab>('platforms');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Modal state
-  const [modal, setModal] = useState<{ mode: ModalMode; type: AccountType; account?: Operator | Regulator } | null>(null);
+  const [modal, setModal] = useState<{ mode: ModalMode; type: AccountType; item?: Platform | Regulator } | null>(null);
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState('');
 
-  // Create form
-  const [newEmail, setNewEmail] = useState('');
-  const [newName, setNewName] = useState('');
-  const [newPlatformId, setNewPlatformId] = useState('');
-  const [newAuthorityId, setNewAuthorityId] = useState('');
+  // Platform form fields
+  const [fName, setFName] = useState('');
+  const [fBaseUrl, setFBaseUrl] = useState('');
+  const [fCategory, setFCategory] = useState('');
+  const [fAuthorityId, setFAuthorityId] = useState('');
+  const [fContactEmail, setFContactEmail] = useState('');
+  const [fContactName, setFContactName] = useState('');
+  const [fWebhookUrl, setFWebhookUrl] = useState('');
+  const [fRegulatorId, setFRegulatorId] = useState('');
+  const [fAvatarUrl, setFAvatarUrl] = useState<string | null>(null);
+  const [fPassword, setFPassword] = useState('');
 
-  // Edit form
-  const [editEmail, setEditEmail] = useState('');
-  const [editName, setEditName] = useState('');
-  const [editPlatformId, setEditPlatformId] = useState('');
-  const [editAuthorityId, setEditAuthorityId] = useState('');
-  const [editPassword, setEditPassword] = useState('');
+  // Regulator form fields
+  const [rEmail, setREmail] = useState('');
+  const [rName, setRName] = useState('');
+  const [rAuthorityId, setRAuthorityId] = useState('');
+  const [rAvatarUrl, setRAvatarUrl] = useState<string | null>(null);
+  const [rPassword, setRPassword] = useState('');
+
   const [avatarUploading, setAvatarUploading] = useState(false);
-  const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null);
 
   function getSecret() { return sessionStorage.getItem('admin_secret') ?? ''; }
 
@@ -75,92 +82,153 @@ export default function AdminDashboard() {
       if (accountsRes.status === 401) { sessionStorage.removeItem('admin_secret'); router.replace('/admin'); return; }
       const accounts = await accountsRes.json();
       const meta = await metaRes.json();
-      setOperators(accounts.operators ?? []);
+      setPlatforms(accounts.platforms ?? []);
       setRegulators(accounts.regulators ?? []);
-      setPlatforms(meta.platforms ?? []);
       setAuthorities(meta.authorities ?? []);
+      setRegulatorsMeta(meta.regulators ?? []);
     } catch { setError('Failed to load data'); }
     finally { setLoading(false); }
   }, [router]);
 
   useEffect(() => { load(); }, [load]);
 
-  function openCreate(type: AccountType) {
-    setNewEmail(''); setNewName('');
-    setNewPlatformId(platforms[0]?.id ?? '');
-    setNewAuthorityId(authorities[0]?.id ?? '');
+  function openCreatePlatform() {
+    setFName(''); setFBaseUrl(''); setFCategory(''); setFContactEmail('');
+    setFContactName(''); setFWebhookUrl(''); setFPassword(''); setFAvatarUrl(null);
+    setFAuthorityId(authorities[0]?.id ?? '');
+    setFRegulatorId('');
     setModalError('');
-    setModal({ mode: 'create', type });
+    setModal({ mode: 'create', type: 'platform' });
   }
 
-  function openEdit(type: AccountType, account: Operator | Regulator) {
-    setEditEmail(account.email);
-    setEditName(account.name ?? '');
-    setEditAvatarUrl(account.avatar_url);
-    setEditPassword('');
-    if (type === 'operator') setEditPlatformId((account as Operator).platform_id);
-    if (type === 'regulator') setEditAuthorityId((account as Regulator).authority_id ?? '');
+  function openEditPlatform(p: Platform) {
+    setFName(p.name); setFBaseUrl(p.base_url); setFCategory(p.category);
+    setFAuthorityId(p.authority_id);
+    setFContactEmail(p.contact_email ?? '');
+    setFContactName(p.contact_name ?? '');
+    setFWebhookUrl(p.webhook_url ?? '');
+    setFRegulatorId(p.regulator_id ?? '');
+    setFAvatarUrl(p.avatar_url);
+    setFPassword('');
     setModalError('');
-    setModal({ mode: 'edit', type, account });
+    setModal({ mode: 'edit', type: 'platform', item: p });
   }
 
-  async function submitCreate() {
-    if (!newEmail) { setModalError('Email is required'); return; }
-    setSaving(true); setModalError('');
-    const body: Record<string, string> = {
-      type: modal!.type, email: newEmail,
-    };
-    if (newName) body.name = newName;
-    if (modal!.type === 'operator') {
-      if (!newPlatformId) { setModalError('Platform is required'); setSaving(false); return; }
-      body.platformId = newPlatformId;
-    } else {
-      if (newAuthorityId) body.authorityId = newAuthorityId;
+  function openCreateRegulator() {
+    setREmail(''); setRName(''); setRAuthorityId(''); setRAvatarUrl(null); setRPassword('');
+    setModalError('');
+    setModal({ mode: 'create', type: 'regulator' });
+  }
+
+  function openEditRegulator(r: Regulator) {
+    setREmail(r.email); setRName(r.name ?? '');
+    setRAuthorityId(r.authority_id ?? ''); setRAvatarUrl(r.avatar_url); setRPassword('');
+    setModalError('');
+    setModal({ mode: 'edit', type: 'regulator', item: r });
+  }
+
+  async function submitCreatePlatform() {
+    if (!fName || !fBaseUrl || !fCategory || !fAuthorityId || !fContactEmail) {
+      setModalError('Name, URL, category, authority, and contact email are required'); return;
     }
+    setSaving(true); setModalError('');
     try {
       const res = await fetch('/api/admin/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getSecret()}` },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          type: 'platform', name: fName, baseUrl: fBaseUrl, category: fCategory,
+          authorityId: fAuthorityId, contactEmail: fContactEmail,
+          ...(fContactName && { contactName: fContactName }),
+          ...(fWebhookUrl && { webhookUrl: fWebhookUrl }),
+          ...(fRegulatorId && { regulatorId: fRegulatorId }),
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setModalError(data.error ?? 'Failed'); return; }
-      setModal(null);
-      load();
+      setModal(null); load();
     } catch { setModalError('Network error'); }
     finally { setSaving(false); }
   }
 
-  async function submitEdit() {
-    if (!modal?.account) return;
+  async function submitEditPlatform() {
+    if (!modal?.item) return;
+    const orig = modal.item as Platform;
     setSaving(true); setModalError('');
-    if (!editEmail) { setModalError('Email is required'); setSaving(false); return; }
-    const body: Record<string, string> = { type: modal.type };
-    if (editEmail !== modal.account.email) body.email = editEmail;
-    if (editName !== (modal.account.name ?? '')) body.name = editName;
-    if (editAvatarUrl !== modal.account.avatar_url && editAvatarUrl !== null) body.avatarUrl = editAvatarUrl;
-    if (editPassword) {
-      if (editPassword.length < 8) { setModalError('Password must be at least 8 characters'); setSaving(false); return; }
-      body.password = editPassword;
+    const body: Record<string, string | null> = { type: 'platform' };
+    if (fName !== orig.name) body.name = fName;
+    if (fBaseUrl !== orig.base_url) body.baseUrl = fBaseUrl;
+    if (fCategory !== orig.category) body.category = fCategory;
+    if (fAuthorityId !== orig.authority_id) body.authorityId = fAuthorityId;
+    if (fContactEmail !== (orig.contact_email ?? '')) body.contactEmail = fContactEmail;
+    if (fContactName !== (orig.contact_name ?? '')) body.contactName = fContactName;
+    if (fWebhookUrl !== (orig.webhook_url ?? '')) body.webhookUrl = fWebhookUrl || null;
+    if (fRegulatorId !== (orig.regulator_id ?? '')) body.regulatorId = fRegulatorId || null;
+    if (fAvatarUrl !== orig.avatar_url && fAvatarUrl !== null) body.avatarUrl = fAvatarUrl;
+    if (fPassword) {
+      if (fPassword.length < 8) { setModalError('Password must be at least 8 characters'); setSaving(false); return; }
+      body.password = fPassword;
     }
-    if (modal.type === 'operator') body.platformId = editPlatformId;
-    if (modal.type === 'regulator' && editAuthorityId) body.authorityId = editAuthorityId;
-
     try {
-      const res = await fetch(`/api/admin/accounts/${modal.account.id}`, {
+      const res = await fetch(`/api/admin/accounts/${orig.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getSecret()}` },
         body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) { setModalError(data.error ?? 'Failed'); return; }
-      setModal(null);
-      load();
+      setModal(null); load();
     } catch { setModalError('Network error'); }
     finally { setSaving(false); }
   }
 
-  async function uploadAvatar(file: File) {
+  async function submitCreateRegulator() {
+    if (!rEmail) { setModalError('Email is required'); return; }
+    setSaving(true); setModalError('');
+    try {
+      const res = await fetch('/api/admin/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getSecret()}` },
+        body: JSON.stringify({
+          type: 'regulator', email: rEmail,
+          ...(rName && { name: rName }),
+          ...(rAuthorityId && { authorityId: rAuthorityId }),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setModalError(data.error ?? 'Failed'); return; }
+      setModal(null); load();
+    } catch { setModalError('Network error'); }
+    finally { setSaving(false); }
+  }
+
+  async function submitEditRegulator() {
+    if (!modal?.item) return;
+    const orig = modal.item as Regulator;
+    setSaving(true); setModalError('');
+    const body: Record<string, string | null> = { type: 'regulator' };
+    if (rEmail !== orig.email) body.email = rEmail;
+    if (rName !== (orig.name ?? '')) body.name = rName;
+    if (rAuthorityId !== (orig.authority_id ?? '')) body.authorityId = rAuthorityId || null;
+    if (rAvatarUrl !== orig.avatar_url && rAvatarUrl !== null) body.avatarUrl = rAvatarUrl;
+    if (rPassword) {
+      if (rPassword.length < 8) { setModalError('Password must be at least 8 characters'); setSaving(false); return; }
+      body.password = rPassword;
+    }
+    try {
+      const res = await fetch(`/api/admin/accounts/${orig.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getSecret()}` },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) { setModalError(data.error ?? 'Failed'); return; }
+      setModal(null); load();
+    } catch { setModalError('Network error'); }
+    finally { setSaving(false); }
+  }
+
+  async function uploadAvatar(file: File, forType: 'platform' | 'regulator') {
     setAvatarUploading(true);
     try {
       const fd = new FormData();
@@ -172,7 +240,8 @@ export default function AdminDashboard() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Upload failed');
-      setEditAvatarUrl(data.url);
+      if (forType === 'platform') setFAvatarUrl(data.url);
+      else setRAvatarUrl(data.url);
     } catch (e: unknown) {
       setModalError(e instanceof Error ? e.message : 'Upload failed');
     } finally { setAvatarUploading(false); }
@@ -188,7 +257,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Nav */}
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -208,10 +276,9 @@ export default function AdminDashboard() {
       <div className="max-w-5xl mx-auto px-4 py-8">
         {error && <div className="bg-red-50 border border-red-100 text-red-700 rounded-xl px-4 py-3 text-sm mb-6">{error}</div>}
 
-        {/* Tab bar */}
         <div className="flex items-center gap-1 mb-6 bg-white border border-gray-100 rounded-xl p-1 shadow-sm w-fit">
           {([
-            { key: 'operators',  label: 'Operators',  count: operators.length },
+            { key: 'platforms',  label: 'Platforms',  count: platforms.length },
             { key: 'regulators', label: 'Regulators', count: regulators.length },
           ] as { key: Tab; label: string; count: number }[]).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
@@ -226,50 +293,52 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {/* Operators tab */}
-        {tab === 'operators' && (
+        {/* Platforms tab */}
+        {tab === 'platforms' && (
           <section>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-xs text-gray-400">{operators.length} account{operators.length !== 1 ? 's' : ''}</p>
-              <button onClick={() => openCreate('operator')}
+              <p className="text-xs text-gray-400">{platforms.length} platform{platforms.length !== 1 ? 's' : ''}</p>
+              <button onClick={openCreatePlatform}
                 className="flex items-center gap-1.5 px-4 py-2 bg-brand text-white text-sm font-semibold rounded-xl hover:bg-brand-dark transition-colors">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Add operator
+                Add platform
               </button>
             </div>
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              {operators.length === 0 ? (
-                <p className="text-center text-sm text-gray-400 py-10">No operators yet</p>
+              {platforms.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-10">No platforms yet</p>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 text-xs text-gray-400 font-semibold uppercase tracking-wide">
-                      <th className="text-left px-5 py-3">Account</th>
-                      <th className="text-left px-4 py-3 hidden sm:table-cell">Platform</th>
-                      <th className="text-left px-4 py-3 hidden md:table-cell">Role</th>
+                      <th className="text-left px-5 py-3">Platform</th>
+                      <th className="text-left px-4 py-3 hidden sm:table-cell">Authority</th>
+                      <th className="text-left px-4 py-3 hidden md:table-cell">Contact</th>
                       <th className="px-5 py-3" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {operators.map(op => (
-                      <tr key={op.id} className="hover:bg-gray-50/60 transition-colors">
+                    {platforms.map(p => (
+                      <tr key={p.id} className="hover:bg-gray-50/60 transition-colors">
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-3">
-                            <Avatar url={op.avatar_url} name={op.name ?? op.email} />
+                            <Avatar url={p.avatar_url} name={p.name} />
                             <div className="min-w-0">
-                              <p className="font-semibold text-gray-900 truncate">{op.name ?? <span className="text-gray-400 italic">No name</span>}</p>
-                              <p className="text-xs text-gray-400 truncate">{op.email}</p>
+                              <p className="font-semibold text-gray-900 truncate">{p.name}</p>
+                              <p className="text-xs text-gray-400 truncate">{p.category}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 hidden sm:table-cell text-gray-600 text-xs">{op.platform_name}</td>
-                        <td className="px-4 py-3 hidden md:table-cell">
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 capitalize">{op.role}</span>
+                        <td className="px-4 py-3 hidden sm:table-cell text-gray-600 text-xs">{p.authority_name}</td>
+                        <td className="px-4 py-3 hidden md:table-cell text-xs text-gray-500">
+                          {p.contact_email
+                            ? <span>{p.contact_name ? `${p.contact_name} · ` : ''}{p.contact_email}</span>
+                            : <span className="italic text-gray-300">No contact set</span>}
                         </td>
                         <td className="px-5 py-3 text-right">
-                          <button onClick={() => openEdit('operator', op)}
+                          <button onClick={() => openEditPlatform(p)}
                             className="text-xs text-gray-500 border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50 transition-colors">
                             Edit
                           </button>
@@ -288,7 +357,7 @@ export default function AdminDashboard() {
           <section>
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs text-gray-400">{regulators.length} account{regulators.length !== 1 ? 's' : ''}</p>
-              <button onClick={() => openCreate('regulator')}
+              <button onClick={openCreateRegulator}
                 className="flex items-center gap-1.5 px-4 py-2 bg-brand text-white text-sm font-semibold rounded-xl hover:bg-brand-dark transition-colors">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -305,7 +374,6 @@ export default function AdminDashboard() {
                     <tr className="border-b border-gray-100 text-xs text-gray-400 font-semibold uppercase tracking-wide">
                       <th className="text-left px-5 py-3">Account</th>
                       <th className="text-left px-4 py-3 hidden sm:table-cell">Authority</th>
-                      <th className="text-left px-4 py-3 hidden md:table-cell">Role</th>
                       <th className="px-5 py-3" />
                     </tr>
                   </thead>
@@ -322,11 +390,8 @@ export default function AdminDashboard() {
                           </div>
                         </td>
                         <td className="px-4 py-3 hidden sm:table-cell text-gray-600 text-xs">{reg.authority_name ?? '—'}</td>
-                        <td className="px-4 py-3 hidden md:table-cell">
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 capitalize">{reg.role}</span>
-                        </td>
                         <td className="px-5 py-3 text-right">
-                          <button onClick={() => openEdit('regulator', reg)}
+                          <button onClick={() => openEditRegulator(reg)}
                             className="text-xs text-gray-500 border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50 transition-colors">
                             Edit
                           </button>
@@ -344,7 +409,7 @@ export default function AdminDashboard() {
       {/* Modal */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-base font-bold text-gray-900">
                 {modal.mode === 'create'
@@ -359,106 +424,127 @@ export default function AdminDashboard() {
             </div>
 
             <div className="space-y-4">
-              {/* Avatar (edit only) */}
-              {modal.mode === 'edit' && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-2">Logo / Avatar</label>
-                  <div className="flex items-center gap-3">
-                    {editAvatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={editAvatarUrl} alt="avatar" className="w-14 h-14 rounded-xl object-cover border border-gray-200" />
-                    ) : (
-                      <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center text-xl text-gray-400 font-bold">
-                        {(editName || '?')[0]?.toUpperCase()}
+              {/* ── PLATFORM MODAL ── */}
+              {modal.type === 'platform' && (
+                <>
+                  {/* Avatar (edit only) */}
+                  {modal.mode === 'edit' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-2">Logo</label>
+                      <div className="flex items-center gap-3">
+                        {fAvatarUrl
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={fAvatarUrl} alt="logo" className="w-14 h-14 rounded-xl object-cover border border-gray-200" />
+                          : <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center text-xl text-gray-400 font-bold">{(fName || '?')[0]?.toUpperCase()}</div>
+                        }
+                        <label className={`cursor-pointer px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors ${avatarUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                          {avatarUploading ? 'Uploading…' : 'Upload logo'}
+                          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                            onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(f, 'platform'); e.target.value = ''; }} />
+                        </label>
+                        {fAvatarUrl && <button onClick={() => setFAvatarUrl(null)} className="text-xs text-red-400 hover:text-red-600">Remove</button>}
                       </div>
-                    )}
-                    <label className={`cursor-pointer px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors ${avatarUploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                      {avatarUploading ? 'Uploading…' : 'Upload logo'}
-                      <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                        onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = ''; }} />
-                    </label>
-                    {editAvatarUrl && (
-                      <button onClick={() => setEditAvatarUrl(null)} className="text-xs text-red-400 hover:text-red-600">Remove</button>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                  )}
+
+                  <Field label="Platform name *">
+                    <input value={fName} onChange={e => setFName(e.target.value)} placeholder="e.g. MTN Rwanda" className={inputCls} />
+                  </Field>
+                  <Field label="Base URL *">
+                    <input value={fBaseUrl} onChange={e => setFBaseUrl(e.target.value)} placeholder="https://mtn.rw" type="url" className={inputCls} />
+                  </Field>
+                  <Field label="Category *">
+                    <input value={fCategory} onChange={e => setFCategory(e.target.value)} placeholder="e.g. telecom, banking, government" className={inputCls} />
+                  </Field>
+                  <Field label="Authority *">
+                    <select value={fAuthorityId} onChange={e => setFAuthorityId(e.target.value)} className={selectCls}>
+                      <option value="">— Select authority —</option>
+                      {authorities.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Contact email *">
+                    <input value={fContactEmail} onChange={e => setFContactEmail(e.target.value)} type="email" placeholder="support@platform.rw" className={inputCls} />
+                  </Field>
+                  <Field label="Contact name">
+                    <input value={fContactName} onChange={e => setFContactName(e.target.value)} placeholder="e.g. MTN Helpdesk Team" className={inputCls} />
+                  </Field>
+                  <Field label="Webhook URL">
+                    <input value={fWebhookUrl} onChange={e => setFWebhookUrl(e.target.value)} type="url" placeholder="https://… (optional)" className={inputCls} />
+                  </Field>
+                  <Field label="Regulator">
+                    <select value={fRegulatorId} onChange={e => setFRegulatorId(e.target.value)} className={selectCls}>
+                      <option value="">— None —</option>
+                      {regulatorsMeta.map(r => <option key={r.id} value={r.id}>{r.name ?? r.email}</option>)}
+                    </select>
+                  </Field>
+
+                  {modal.mode === 'create' ? (
+                    <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-3.5 py-3">
+                      <svg className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-xs text-blue-700 leading-relaxed">
+                        A setup code will be emailed to the contact address. They&apos;ll use it to set their own password on first sign-in.
+                      </p>
+                    </div>
+                  ) : (
+                    <Field label="Reset password">
+                      <input type="password" value={fPassword} onChange={e => setFPassword(e.target.value)} placeholder="Leave blank to keep current" className={inputCls} />
+                    </Field>
+                  )}
+                </>
               )}
 
-              {/* Email */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Email *</label>
-                <input
-                  type="email"
-                  value={modal.mode === 'create' ? newEmail : editEmail}
-                  onChange={e => modal.mode === 'create' ? setNewEmail(e.target.value) : setEditEmail(e.target.value)}
-                  placeholder="name@organization.rw"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition" />
-              </div>
-
-              {/* Name */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Display name</label>
-                {modal.mode === 'create' ? (
-                  <input value={newName} onChange={e => setNewName(e.target.value)}
-                    placeholder="e.g. MTN Rwanda Helpdesk"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition" />
-                ) : (
-                  <input value={editName} onChange={e => setEditName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition" />
-                )}
-              </div>
-
-              {/* Platform (operator only) */}
-              {modal.type === 'operator' && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Platform *</label>
-                  <select
-                    value={modal.mode === 'create' ? newPlatformId : editPlatformId}
-                    onChange={e => modal.mode === 'create' ? setNewPlatformId(e.target.value) : setEditPlatformId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition bg-white">
-                    {platforms.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} — {p.authority_name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Authority (regulator only) */}
+              {/* ── REGULATOR MODAL ── */}
               {modal.type === 'regulator' && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Authority</label>
-                  <select
-                    value={modal.mode === 'create' ? newAuthorityId : editAuthorityId}
-                    onChange={e => modal.mode === 'create' ? setNewAuthorityId(e.target.value) : setEditAuthorityId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition bg-white">
-                    <option value="">— None (cross-authority) —</option>
-                    {authorities.map(a => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+                <>
+                  {modal.mode === 'edit' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-2">Avatar</label>
+                      <div className="flex items-center gap-3">
+                        {rAvatarUrl
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={rAvatarUrl} alt="avatar" className="w-14 h-14 rounded-xl object-cover border border-gray-200" />
+                          : <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center text-xl text-gray-400 font-bold">{(rName || rEmail || '?')[0]?.toUpperCase()}</div>
+                        }
+                        <label className={`cursor-pointer px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors ${avatarUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                          {avatarUploading ? 'Uploading…' : 'Upload avatar'}
+                          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                            onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(f, 'regulator'); e.target.value = ''; }} />
+                        </label>
+                        {rAvatarUrl && <button onClick={() => setRAvatarUrl(null)} className="text-xs text-red-400 hover:text-red-600">Remove</button>}
+                      </div>
+                    </div>
+                  )}
 
-              {/* Password — create: info note; edit: reset field */}
-              {modal.mode === 'create' ? (
-                <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-3.5 py-3">
-                  <svg className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className="text-xs text-blue-700 leading-relaxed">
-                    A setup code will be emailed to this address. They&apos;ll use it to create their own password on first sign-in.
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Reset password</label>
-                  <input
-                    type="password"
-                    value={editPassword}
-                    onChange={e => setEditPassword(e.target.value)}
-                    placeholder="Leave blank to keep current"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition" />
-                </div>
+                  <Field label="Email *">
+                    <input value={rEmail} onChange={e => setREmail(e.target.value)} type="email" placeholder="regulator@authority.rw" className={inputCls} />
+                  </Field>
+                  <Field label="Display name">
+                    <input value={rName} onChange={e => setRName(e.target.value)} placeholder="e.g. RURA Oversight" className={inputCls} />
+                  </Field>
+                  <Field label="Authority">
+                    <select value={rAuthorityId} onChange={e => setRAuthorityId(e.target.value)} className={selectCls}>
+                      <option value="">— None (cross-authority) —</option>
+                      {authorities.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                  </Field>
+
+                  {modal.mode === 'create' ? (
+                    <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-3.5 py-3">
+                      <svg className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-xs text-blue-700 leading-relaxed">
+                        A setup code will be emailed to this address. They&apos;ll use it to set their own password on first sign-in.
+                      </p>
+                    </div>
+                  ) : (
+                    <Field label="Reset password">
+                      <input type="password" value={rPassword} onChange={e => setRPassword(e.target.value)} placeholder="Leave blank to keep current" className={inputCls} />
+                    </Field>
+                  )}
+                </>
               )}
 
               {modalError && <p className="text-xs text-red-600">{modalError}</p>}
@@ -469,16 +555,32 @@ export default function AdminDashboard() {
                   Cancel
                 </button>
                 <button
-                  onClick={modal.mode === 'create' ? submitCreate : submitEdit}
+                  onClick={
+                    modal.type === 'platform'
+                      ? (modal.mode === 'create' ? submitCreatePlatform : submitEditPlatform)
+                      : (modal.mode === 'create' ? submitCreateRegulator : submitEditRegulator)
+                  }
                   disabled={saving}
                   className="flex-1 py-2.5 bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors">
-                  {saving ? 'Saving…' : modal.mode === 'create' ? 'Create account' : 'Save changes'}
+                  {saving ? 'Saving…' : modal.mode === 'create' ? 'Create' : 'Save changes'}
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+const inputCls = 'w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition';
+const selectCls = `${inputCls} bg-white`;
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-500 mb-1.5">{label}</label>
+      {children}
     </div>
   );
 }

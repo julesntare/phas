@@ -33,8 +33,8 @@ export async function verifyOperatorToken(token: string): Promise<OperatorPayloa
 export async function requireOperatorAuth(authHeader: string | null): Promise<OperatorPayload> {
   if (!authHeader?.startsWith('Bearer ')) throw new Error('Missing token');
   const payload = await verifyOperatorToken(authHeader.slice(7));
-  const [row] = await sql<{ id: string }[]>`SELECT id FROM help_desk_accounts WHERE id = ${payload.sub} LIMIT 1`;
-  if (!row) throw new Error('Operator not found');
+  const [row] = await sql<{ id: string }[]>`SELECT id FROM platforms WHERE id = ${payload.sub} LIMIT 1`;
+  if (!row) throw new Error('Platform not found');
   return payload;
 }
 

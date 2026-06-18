@@ -5,16 +5,14 @@ import { requireAdminAuth } from '@/lib/admin-auth';
 export async function GET(req: NextRequest) {
   try { requireAdminAuth(req); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
 
-  const [platforms, authorities] = await Promise.all([
-    sql<{ id: string; name: string; authority_name: string }[]>`
-      SELECT p.id, p.name, a.name AS authority_name
-      FROM platforms p JOIN authorities a ON a.id = p.authority_id
-      ORDER BY p.name
-    `,
+  const [authorities, regulators] = await Promise.all([
     sql<{ id: string; name: string }[]>`
       SELECT id, name FROM authorities ORDER BY name
     `,
+    sql<{ id: string; email: string; name: string | null }[]>`
+      SELECT id, email, name FROM regulator_accounts ORDER BY email
+    `,
   ]);
 
-  return NextResponse.json({ platforms, authorities });
+  return NextResponse.json({ authorities, regulators });
 }

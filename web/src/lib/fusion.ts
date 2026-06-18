@@ -139,10 +139,10 @@ async function alertOperators(
   `;
   if (!platform) return;
 
-  const operatorRows = await sql<{ email: string }[]>`
-    SELECT email FROM help_desk_accounts WHERE platform_id = ${platformId}
+  const contactRow = await sql<{ contact_email: string | null }[]>`
+    SELECT contact_email FROM platforms WHERE id = ${platformId} LIMIT 1
   `;
-  const emails = operatorRows.map(r => r.email);
+  const emails = contactRow.flatMap(r => r.contact_email ? [r.contact_email] : []);
   if (emails.length === 0) return;
 
   await sendIncidentAlert({

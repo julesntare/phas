@@ -11,34 +11,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'email and password required' }, { status: 400 });
   }
 
-  const [account] = await sql<{
-    id: string; email: string; name: string | null;
-    platform_id: string; password_hash: string | null;
+  const [platform] = await sql<{
+    id: string; contact_email: string; contact_name: string | null; password_hash: string | null;
   }[]>`
-    SELECT id, email, name, platform_id, password_hash
-    FROM help_desk_accounts
-    WHERE email = ${email}
+    SELECT id, contact_email, contact_name, password_hash
+    FROM platforms
+    WHERE contact_email = ${email}
     LIMIT 1
   `;
 
-  if (!account || !account.password_hash || !verifyPassword(password, account.password_hash)) {
+  if (!platform || !platform.password_hash || !verifyPassword(password, platform.password_hash)) {
     return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
   }
 
   const token = await signOperatorToken({
-    sub: account.id,
-    email: account.email,
-    platformId: account.platform_id,
+    sub: platform.id,
+    email: platform.contact_email,
+    platformId: platform.id,
   });
 
   const expiresAt = new Date(Date.now() + Number(process.env.JWT_EXPIRY_SECONDS ?? 86400) * 1000);
   await sql`
-    INSERT INTO operator_sessions (operator_id, token_hash, expires_at)
-    VALUES (${account.id}, ${hashToken(token)}, ${expiresAt})
+    INSERT INTO platform_sessions (platform_id, token_hash, expires_at)
+    VALUES (${platform.id}, ${hashToken(token)}, ${expiresAt})
   `;
 
   return NextResponse.json({
     token,
-    operator: { id: account.id, email: account.email, name: account.name },
+    operator: { id: platform.id, email: platform.contact_email, name: platform.contact_name },
   });
 }

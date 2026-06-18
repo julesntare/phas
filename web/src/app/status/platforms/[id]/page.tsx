@@ -40,14 +40,9 @@ export default async function PlatformHistoryPage({ params }: { params: Promise<
 
   const [platformRows, incidentRows, uptimeRows] = await Promise.all([
     sql<{ name: string; category: string; authority_name: string; operator_avatar_url: string | null }[]>`
-      SELECT p.name, p.category, a.name AS authority_name, op.avatar_url AS operator_avatar_url
+      SELECT p.name, p.category, a.name AS authority_name, p.avatar_url AS operator_avatar_url
       FROM platforms p
       JOIN authorities a ON a.id = p.authority_id
-      LEFT JOIN LATERAL (
-        SELECT avatar_url FROM help_desk_accounts
-        WHERE platform_id = p.id AND avatar_url IS NOT NULL
-        LIMIT 1
-      ) op ON TRUE
       WHERE p.id = ${id}
     `,
     sql<IncidentRow[]>`

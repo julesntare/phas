@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Only jpg, png, webp allowed' }, { status: 400 });
   }
 
-  const blob = await put(`avatars/operators/${op.sub}/${Date.now()}.${ext}`, file, { access: 'public' });
-  await sql`UPDATE help_desk_accounts SET avatar_url = ${blob.url} WHERE id = ${op.sub}`;
+  const blob = await put(`avatars/platforms/${op.sub}/${Date.now()}.${ext}`, file, { access: 'public' });
+  await sql`UPDATE platforms SET avatar_url = ${blob.url} WHERE id = ${op.sub}`;
   return NextResponse.json({ url: blob.url });
 }
