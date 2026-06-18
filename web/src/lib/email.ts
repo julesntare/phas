@@ -23,6 +23,8 @@ export async function sendSetupEmail(
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
   const loginUrl = `${appUrl}/${role}`;
 
+  const recipient = process.env.DEV_EMAIL_OVERRIDE ?? to;
+
   if (!resend) {
     console.log(`[email:dev] Setup code for ${to} (${role}): ${code}`);
     return;
@@ -30,7 +32,7 @@ export async function sendSetupEmail(
 
   await resend.emails.send({
     from: FROM,
-    to,
+    to: recipient,
     subject: `Your PHAS ${portalName} access`,
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
