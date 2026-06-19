@@ -479,7 +479,7 @@ export default function AdminDashboard() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <p className="text-xs text-blue-700 leading-relaxed">
-                        A setup code will be emailed to the contact address. They&apos;ll use it to set their own password on first sign-in.
+                        No password is set yet. A setup code will be sent to the contact email automatically on their first sign-in attempt.
                       </p>
                     </div>
                   ) : (

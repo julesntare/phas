@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 import { requireAdminAuth } from '@/lib/admin-auth';
-import { hashToken } from '@/lib/operator-auth';
-import { generateSetupCode, sendSetupEmail } from '@/lib/email';
 
 export async function GET(req: NextRequest) {
   try { requireAdminAuth(req); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
@@ -51,20 +49,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'name, baseUrl, category, authorityId, and contactEmail are required' }, { status: 400 });
     }
 
-    const code = generateSetupCode();
-    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
-
     const [row] = await sql<{ id: string }[]>`
       INSERT INTO platforms
-        (name, base_url, category, authority_id, contact_email, contact_name, webhook_url, setup_token, setup_token_expires_at)
+        (name, base_url, category, authority_id, contact_email, contact_name, webhook_url)
       VALUES
         (${name}, ${baseUrl}, ${category}, ${authorityId},
-         ${contactEmail.trim().toLowerCase()}, ${contactName ?? null},
-         ${webhookUrl ?? null}, ${hashToken(code)}, ${expiresAt})
+         ${contactEmail.trim().toLowerCase()}, ${contactName ?? null}, ${webhookUrl ?? null})
       RETURNING id
     `;
 
-    await sendSetupEmail(contactEmail, code, 'operator');
     return NextResponse.json({ id: row.id, type: 'platform' }, { status: 201 });
   }
 
@@ -77,16 +70,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'name and contactEmail are required' }, { status: 400 });
     }
 
-    const code = generateSetupCode();
-    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
-
     const [row] = await sql<{ id: string }[]>`
-      INSERT INTO authorities (name, remit_description, contact_email, contact_name, setup_token, setup_token_expires_at)
-      VALUES (${name}, ${remitDescription ?? null}, ${contactEmail.trim().toLowerCase()}, ${contactName ?? null}, ${hashToken(code)}, ${expiresAt})
+      INSERT INTO authorities (name, remit_description, contact_email, contact_name)
+      VALUES (${name}, ${remitDescription ?? null}, ${contactEmail.trim().toLowerCase()}, ${contactName ?? null})
       RETURNING id
     `;
 
-    await sendSetupEmail(contactEmail, code, 'regulator');
     return NextResponse.json({ id: row.id, type: 'authority' }, { status: 201 });
   }
 
