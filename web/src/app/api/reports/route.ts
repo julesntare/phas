@@ -39,18 +39,10 @@ export async function POST(req: NextRequest) {
     if (authHeader?.startsWith('Bearer ')) {
       try {
         const payload = await verifyAnyToken(authHeader.slice(7));
-        console.log('[reports] bearer payload:', JSON.stringify(payload));
         if (isCitizenToken(payload)) {
           citizenId = payload.sub;
-          console.log('[reports] citizenId from bearer:', citizenId);
-          // Verify the citizen_accounts row actually exists.
-          const [row] = await sql<{ id: string }[]>`
-            SELECT id FROM citizen_accounts WHERE id = ${citizenId}
-          `;
-          console.log('[reports] citizen_accounts lookup:', row ?? 'NOT FOUND');
         } else {
           userId = payload.sub;
-          console.log('[reports] userId from bearer:', userId);
         }
       } catch {
         return NextResponse.json(

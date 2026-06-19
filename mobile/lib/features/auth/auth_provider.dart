@@ -84,13 +84,12 @@ class AuthNotifier extends AsyncNotifier<User?> {
   }
 
   Future<void> signOut() async {
-    await _api.delete('/api/devices').catchError((_) => <String, dynamic>{});
+    // Clear local credentials immediately so the router redirects at once.
     await SecureStorage.deleteToken();
-    // Also sign out of Google if applicable.
-    try {
-      await GoogleSignIn().signOut();
-    } catch (_) {}
     state = const AsyncData(null);
+    // Best-effort server cleanup — don't block the UI on network calls.
+    _api.delete('/api/devices').catchError((_) => <String, dynamic>{});
+    GoogleSignIn().signOut().catchError((_) => null);
   }
 
   bool get isAuthenticated => state is AsyncData;
