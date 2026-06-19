@@ -581,15 +581,6 @@ class _StatusHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  platform.authorityName,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
                   platform.category,
                   style: TextStyle(
                       fontSize: 12, color: cs.onSurfaceVariant),

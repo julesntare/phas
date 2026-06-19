@@ -101,6 +101,7 @@ export default function OperatorDashboard() {
   const [mwStart, setMwStart] = useState('');
   const [mwEnd, setMwEnd] = useState('');
   const [mwSaving, setMwSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Profile
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -228,6 +229,47 @@ export default function OperatorDashboard() {
       method: 'DELETE', headers: { Authorization: `Bearer ${getToken()}` },
     });
     loadMaintenance();
+  }
+
+  function startEdit(w: MaintenanceWindow) {
+    // Convert UTC ISO strings back to datetime-local format (local time)
+    const toLocal = (iso: string) => {
+      const d = new Date(iso);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+    setEditingId(w.id);
+    setMwTitle(w.title);
+    setMwDesc(w.description ?? '');
+    setMwStart(toLocal(w.starts_at));
+    setMwEnd(toLocal(w.ends_at));
+    setMwError('');
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setMwTitle(''); setMwDesc(''); setMwStart(''); setMwEnd('');
+    setMwError('');
+  }
+
+  async function updateWindow() {
+    if (!editingId || !mwTitle || !mwStart || !mwEnd) return;
+    setMwSaving(true); setMwError('');
+    try {
+      const starts_at = new Date(mwStart).toISOString();
+      const ends_at   = new Date(mwEnd).toISOString();
+      const res = await fetch(`/api/operator/maintenance/${editingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ title: mwTitle, description: mwDesc || undefined, starts_at, ends_at }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+      cancelEdit();
+      loadMaintenance();
+    } catch (e: unknown) {
+      setMwError(e instanceof Error ? e.message : 'Failed to update');
+    } finally { setMwSaving(false); }
   }
 
   async function saveName() {
@@ -568,6 +610,43 @@ export default function OperatorDashboard() {
                 {windows.map(w => {
                   const now = new Date();
                   const active = new Date(w.starts_at) <= now && new Date(w.ends_at) > now;
+                  const isEditing = editingId === w.id;
+                  if (isEditing) {
+                    return (
+                      <div key={w.id} className="rounded-xl border border-brand/30 bg-brand/5 p-4 space-y-3">
+                        <p className="text-xs font-bold text-brand uppercase tracking-wide">Editing window</p>
+                        <input value={mwTitle} onChange={e => setMwTitle(e.target.value)}
+                          placeholder="Maintenance title"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition" />
+                        <textarea value={mwDesc} onChange={e => setMwDesc(e.target.value)}
+                          placeholder="Description (optional)" rows={2}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition" />
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-500 mb-1.5">Starts at</label>
+                            <input type="datetime-local" value={mwStart} onChange={e => setMwStart(e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-500 mb-1.5">Ends at</label>
+                            <input type="datetime-local" value={mwEnd} onChange={e => setMwEnd(e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition" />
+                          </div>
+                        </div>
+                        {mwError && <p className="text-red-500 text-xs">{mwError}</p>}
+                        <div className="flex gap-2">
+                          <button onClick={updateWindow} disabled={mwSaving || !mwTitle || !mwStart || !mwEnd}
+                            className="flex-1 py-2 bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors">
+                            {mwSaving ? 'Saving…' : 'Save changes'}
+                          </button>
+                          <button onClick={cancelEdit}
+                            className="px-4 py-2 border border-gray-200 text-gray-500 font-semibold rounded-xl text-sm hover:bg-gray-50 transition-colors">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
                   return (
                     <div key={w.id}
                       className={`rounded-xl border px-4 py-3.5 flex items-start justify-between gap-4 ${active ? 'bg-blue-50/60 border-blue-100' : 'bg-white border-gray-100'}`}>
@@ -581,10 +660,16 @@ export default function OperatorDashboard() {
                           {formatDateTime(w.starts_at)} → {formatDateTime(w.ends_at)}
                         </p>
                       </div>
-                      <button onClick={() => cancelWindow(w.id)}
-                        className="text-xs text-red-500 hover:text-red-700 font-semibold shrink-0 transition-colors">
-                        Cancel
-                      </button>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <button onClick={() => startEdit(w)}
+                          className="text-xs text-brand hover:text-brand-dark font-semibold transition-colors">
+                          Edit
+                        </button>
+                        <button onClick={() => cancelWindow(w.id)}
+                          className="text-xs text-red-500 hover:text-red-700 font-semibold transition-colors">
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                   );
                 })}

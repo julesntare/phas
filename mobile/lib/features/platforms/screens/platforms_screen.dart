@@ -426,7 +426,7 @@ class _PlatformTile extends ConsumerWidget {
                         size: 20, color: statusColor),
               ),
               const SizedBox(width: 12),
-              // Name + authority
+              // Name
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,13 +435,6 @@ class _PlatformTile extends ConsumerWidget {
                       platform.name,
                       style: const TextStyle(
                           fontSize: 15, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      platform.authorityName,
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
                     if (platform.uptime7d != null) ...[
                       const SizedBox(height: 3),
