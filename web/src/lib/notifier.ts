@@ -116,6 +116,28 @@ async function sendToTokens(
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+interface SubscriptionTarget {
+  user_id: string | null;
+  citizen_id: string | null;
+}
+
+// Query device tokens for all subscribers of a platform (phone OTP + Google).
+async function subscriberTokens(platformId: string): Promise<string[]> {
+  const rows = await sql<{ token: string }[]>`
+    SELECT dt.token
+    FROM device_tokens dt
+    WHERE EXISTS (
+      SELECT 1 FROM subscriptions s
+      WHERE s.platform_id = ${platformId}
+        AND (
+          (dt.user_id    IS NOT NULL AND s.user_id    = dt.user_id)
+          OR (dt.citizen_id IS NOT NULL AND s.citizen_id = dt.citizen_id)
+        )
+    )
+  `;
+  return rows.map(r => r.token);
+}
+
 // Sends operator state-change updates to all platform subscribers.
 // Does NOT use the notifications_sent dedup table — operator updates are
 // always delivered regardless of whether the user saw the initial alert.
@@ -128,25 +150,13 @@ export async function dispatchOperatorUpdate(
   const creds = await resolveServiceAccount();
   if (!creds) return;
 
-  const tokenRows = await sql<{ token: string }[]>`
-    SELECT dt.token
-    FROM device_tokens dt
-    JOIN subscriptions s ON s.user_id = dt.user_id
-    WHERE s.platform_id = ${platformId}
-  `;
-  if (tokenRows.length === 0) return;
+  const tokens = await subscriberTokens(platformId);
+  if (tokens.length === 0) return;
 
   const [platform] = await sql<{ name: string }[]>`SELECT name FROM platforms WHERE id = ${platformId}`;
   const data = { incidentId, platformId, platformName: platform?.name ?? '' };
 
-  await sendToTokens(
-    tokenRows.map(r => r.token),
-    title,
-    body,
-    data,
-    creds.accessToken,
-    creds.sa.project_id,
-  );
+  await sendToTokens(tokens, title, body, data, creds.accessToken, creds.sa.project_id);
 }
 
 // Sends a "is it working now?" prompt to subscribers when an incident resolves.
@@ -161,16 +171,11 @@ export async function dispatchResolutionFeedback(
   const [platform] = await sql<{ name: string }[]>`SELECT name FROM platforms WHERE id = ${platformId}`;
   const platformName = platform?.name ?? 'Platform';
 
-  const tokenRows = await sql<{ token: string }[]>`
-    SELECT dt.token
-    FROM device_tokens dt
-    JOIN subscriptions s ON s.user_id = dt.user_id
-    WHERE s.platform_id = ${platformId}
-  `;
-  if (tokenRows.length === 0) return;
+  const tokens = await subscriberTokens(platformId);
+  if (tokens.length === 0) return;
 
   await sendToTokens(
-    tokenRows.map(r => r.token),
+    tokens,
     `✅ ${platformName} — Issue resolved`,
     'Is it working for you now? Open the app to report.',
     { incidentId, platformId, platformName, type: 'resolved' },
@@ -183,31 +188,42 @@ export async function dispatchNotifications(
   platformId: string,
   incidentId: string,
 ): Promise<void> {
-  // Resolve platform name for the notification copy.
   const [platform] = await sql<{ name: string }[]>`
     SELECT name FROM platforms WHERE id = ${platformId}
   `;
 
-  // Users subscribed to this platform who haven't been notified yet.
-  const targets = await sql<{ user_id: string }[]>`
-    SELECT s.user_id FROM subscriptions s
+  // Subscribers (phone OTP + Google) who haven't been notified yet.
+  const targets = await sql<SubscriptionTarget[]>`
+    SELECT s.user_id, s.citizen_id FROM subscriptions s
     WHERE s.platform_id = ${platformId}
       AND NOT EXISTS (
         SELECT 1 FROM notifications_sent ns
-        WHERE ns.user_id = s.user_id AND ns.incident_id = ${incidentId}
+        WHERE ns.incident_id = ${incidentId}
+          AND (
+            (s.user_id    IS NOT NULL AND ns.user_id    = s.user_id)
+            OR (s.citizen_id IS NOT NULL AND ns.citizen_id = s.citizen_id)
+          )
       )
   `;
   if (targets.length === 0) return;
 
-  const userIds = targets.map(t => t.user_id);
+  // Collect device tokens for both user types.
+  const userIds    = targets.filter(t => t.user_id).map(t => t.user_id!);
+  const citizenIds = targets.filter(t => t.citizen_id).map(t => t.citizen_id!);
 
-  // Collect all device tokens for these users.
-  const tokenRows = await sql<{ user_id: string; token: string }[]>`
-    SELECT user_id, token FROM device_tokens
-    WHERE user_id = ANY(${userIds}::uuid[])
-  `;
+  const tokenRows: { token: string }[] = [];
+  if (userIds.length > 0) {
+    tokenRows.push(...await sql<{ token: string }[]>`
+      SELECT token FROM device_tokens WHERE user_id = ANY(${userIds}::uuid[])
+    `);
+  }
+  if (citizenIds.length > 0) {
+    tokenRows.push(...await sql<{ token: string }[]>`
+      SELECT token FROM device_tokens WHERE citizen_id = ANY(${citizenIds}::uuid[])
+    `);
+  }
 
-  await markNotified(userIds, incidentId);
+  await markNotified(targets, incidentId);
   if (tokenRows.length === 0) return;
 
   const creds = await resolveServiceAccount();
@@ -217,19 +233,15 @@ export async function dispatchNotifications(
   const body  = 'Others are reporting problems. Tap to follow the incident.';
   const data  = { incidentId, platformId, platformName: platform?.name ?? '' };
 
-  await sendToTokens(
-    tokenRows.map(r => r.token),
-    title, body, data,
-    creds.accessToken,
-    creds.sa.project_id,
-  );
+  await sendToTokens(tokenRows.map(r => r.token), title, body, data, creds.accessToken, creds.sa.project_id);
 }
 
-async function markNotified(userIds: string[], incidentId: string): Promise<void> {
-  for (const userId of userIds) {
+async function markNotified(targets: SubscriptionTarget[], incidentId: string): Promise<void> {
+  for (const t of targets) {
     await sql`
-      INSERT INTO notifications_sent (user_id, incident_id)
-      VALUES (${userId}, ${incidentId}) ON CONFLICT DO NOTHING
+      INSERT INTO notifications_sent (user_id, citizen_id, incident_id)
+      VALUES (${t.user_id ?? null}, ${t.citizen_id ?? null}, ${incidentId})
+      ON CONFLICT DO NOTHING
     `;
   }
 }

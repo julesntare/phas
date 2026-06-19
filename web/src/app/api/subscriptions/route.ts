@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
-import { verifyAnyToken } from '@/lib/auth';
+import { verifyAnyToken, isCitizenToken } from '@/lib/auth';
 
 // GET /api/subscriptions — returns platform IDs the authenticated user follows.
 export async function GET(req: NextRequest) {
@@ -13,9 +13,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const rows = await sql<{ platform_id: string }[]>`
-    SELECT platform_id FROM subscriptions WHERE user_id = ${user.sub}
-  `;
+  const rows = isCitizenToken(user)
+    ? await sql<{ platform_id: string }[]>`
+        SELECT platform_id FROM subscriptions WHERE citizen_id = ${user.sub}
+      `
+    : await sql<{ platform_id: string }[]>`
+        SELECT platform_id FROM subscriptions WHERE user_id = ${user.sub}
+      `;
 
   return NextResponse.json({ platformIds: rows.map((r) => r.platform_id) });
 }
@@ -45,12 +49,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Platform not found' }, { status: 404 });
   }
 
-  const [sub] = await sql<{ id: string }[]>`
-    INSERT INTO subscriptions (user_id, platform_id)
-    VALUES (${user.sub}, ${platformId})
-    ON CONFLICT (user_id, platform_id) DO UPDATE SET user_id = EXCLUDED.user_id
-    RETURNING id
-  `;
+  let sub: { id: string };
+  if (isCitizenToken(user)) {
+    [sub] = await sql<{ id: string }[]>`
+      INSERT INTO subscriptions (citizen_id, platform_id)
+      VALUES (${user.sub}, ${platformId})
+      ON CONFLICT DO NOTHING
+      RETURNING id
+    `;
+  } else {
+    [sub] = await sql<{ id: string }[]>`
+      INSERT INTO subscriptions (user_id, platform_id)
+      VALUES (${user.sub}, ${platformId})
+      ON CONFLICT (user_id, platform_id) DO UPDATE SET user_id = EXCLUDED.user_id
+      RETURNING id
+    `;
+  }
 
-  return NextResponse.json({ id: sub.id }, { status: 201 });
+  return NextResponse.json({ id: sub?.id }, { status: 201 });
 }

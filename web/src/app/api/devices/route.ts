@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
-import { verifyAnyToken } from '@/lib/auth';
+import { verifyAnyToken, isCitizenToken } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   let user;
@@ -23,13 +23,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'platform must be android or ios' }, { status: 400 });
   }
 
-  // Upsert: if the token already exists, reassign it to this user and update timestamp.
-  await sql`
-    INSERT INTO device_tokens (user_id, token, platform, updated_at)
-    VALUES (${user.sub}, ${token}, ${platform}, NOW())
-    ON CONFLICT (token) DO UPDATE
-      SET user_id = ${user.sub}, platform = ${platform}, updated_at = NOW()
-  `;
+  if (isCitizenToken(user)) {
+    await sql`
+      INSERT INTO device_tokens (citizen_id, token, platform, updated_at)
+      VALUES (${user.sub}, ${token}, ${platform}, NOW())
+      ON CONFLICT (token) DO UPDATE
+        SET citizen_id = ${user.sub}, user_id = NULL, platform = ${platform}, updated_at = NOW()
+    `;
+  } else {
+    await sql`
+      INSERT INTO device_tokens (user_id, token, platform, updated_at)
+      VALUES (${user.sub}, ${token}, ${platform}, NOW())
+      ON CONFLICT (token) DO UPDATE
+        SET user_id = ${user.sub}, citizen_id = NULL, platform = ${platform}, updated_at = NOW()
+    `;
+  }
 
   return NextResponse.json({ ok: true });
 }
@@ -45,9 +53,11 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  await sql`
-    DELETE FROM device_tokens WHERE user_id = ${user.sub}
-  `;
+  if (isCitizenToken(user)) {
+    await sql`DELETE FROM device_tokens WHERE citizen_id = ${user.sub}`;
+  } else {
+    await sql`DELETE FROM device_tokens WHERE user_id = ${user.sub}`;
+  }
 
   return NextResponse.json({ ok: true });
 }

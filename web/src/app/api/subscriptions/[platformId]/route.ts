@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
-import { verifyAnyToken } from '@/lib/auth';
+import { verifyAnyToken, isCitizenToken } from '@/lib/auth';
 
 // DELETE /api/subscriptions/:platformId — unfollow a platform.
 export async function DELETE(
@@ -18,10 +18,17 @@ export async function DELETE(
 
   const { platformId } = await params;
 
-  await sql`
-    DELETE FROM subscriptions
-    WHERE user_id = ${user.sub} AND platform_id = ${platformId}
-  `;
+  if (isCitizenToken(user)) {
+    await sql`
+      DELETE FROM subscriptions
+      WHERE citizen_id = ${user.sub} AND platform_id = ${platformId}
+    `;
+  } else {
+    await sql`
+      DELETE FROM subscriptions
+      WHERE user_id = ${user.sub} AND platform_id = ${platformId}
+    `;
+  }
 
   return NextResponse.json({ success: true });
 }
