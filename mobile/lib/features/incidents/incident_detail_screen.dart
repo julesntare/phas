@@ -73,6 +73,7 @@ class _IncidentDetailScreenState
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final incidentAsync =
         ref.watch(incidentDetailProvider(widget.incidentId));
 
@@ -86,11 +87,11 @@ class _IncidentDetailScreenState
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.cloud_off_outlined,
-                    size: 48, color: Color(0xFFD1D5DB)),
+                Icon(Icons.cloud_off_outlined,
+                    size: 48, color: cs.outlineVariant),
                 const SizedBox(height: 12),
                 Text('$e',
-                    style: const TextStyle(color: Color(0xFF6B7280)),
+                    style: TextStyle(color: cs.onSurfaceVariant),
                     textAlign: TextAlign.center),
               ],
             ),
@@ -154,12 +155,13 @@ class _StateBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final color = incidentStateColor(incident.state);
     final age = _formatAge(incident.openedAt);
 
     return Container(
       width: double.infinity,
-      color: Colors.white,
+      color: cs.surface,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,7 +203,7 @@ class _StateBanner extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEE2E2),
+                    color: const Color(0xFFDC2626).withAlpha(25),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -218,29 +220,26 @@ class _StateBanner extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             incident.authorityName,
-            style: const TextStyle(
-                fontSize: 13, color: Color(0xFF6B7280)),
+            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
           ),
           const SizedBox(height: 2),
           Row(
             children: [
-              const Icon(Icons.schedule_outlined,
-                  size: 13, color: Color(0xFF9CA3AF)),
+              Icon(Icons.schedule_outlined,
+                  size: 13, color: cs.outline),
               const SizedBox(width: 4),
               Text(
                 'Open for $age',
-                style: const TextStyle(
-                    fontSize: 12, color: Color(0xFF9CA3AF)),
+                style: TextStyle(fontSize: 12, color: cs.outline),
               ),
               if (incident.confidence != null) ...[
                 const SizedBox(width: 12),
-                const Icon(Icons.bar_chart_outlined,
-                    size: 13, color: Color(0xFF9CA3AF)),
+                Icon(Icons.bar_chart_outlined,
+                    size: 13, color: cs.outline),
                 const SizedBox(width: 4),
                 Text(
                   '${((incident.confidence ?? 0) * 100).round()}% confidence',
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF9CA3AF)),
+                  style: TextStyle(fontSize: 12, color: cs.outline),
                 ),
               ],
             ],
@@ -273,6 +272,7 @@ class _CosignCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final count = incident.cosignCount;
     return Card(
       child: Padding(
@@ -285,11 +285,11 @@ class _CosignCard extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
+                    color: cs.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(22),
                   ),
-                  child: const Icon(Icons.people_alt_outlined,
-                      size: 22, color: Color(0xFF6B7280)),
+                  child: Icon(Icons.people_alt_outlined,
+                      size: 22, color: cs.onSurfaceVariant),
                 ),
                 if (count > 0)
                   Positioned(
@@ -342,12 +342,11 @@ class _CosignCard extends StatelessWidget {
                       ),
                     )
                   else
-                    const Padding(
-                      padding: EdgeInsets.only(top: 2),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         'Tap to confirm you\'re affected too',
-                        style: TextStyle(
-                            fontSize: 12, color: Color(0xFF9CA3AF)),
+                        style: TextStyle(fontSize: 12, color: cs.outline),
                       ),
                     ),
                 ],
@@ -382,17 +381,18 @@ class _TimelineSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     if (events.isEmpty) return const SizedBox.shrink();
     final sorted = events.toList()
       ..sort((a, b) => a.at.compareTo(b.at));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Timeline',
+        Text('Timeline',
             style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 15,
-                color: Color(0xFF111827))),
+                color: cs.onSurface)),
         const SizedBox(height: 12),
         ...List.generate(sorted.length, (i) => _TimelineRow(
               event: sorted[i],
@@ -410,6 +410,7 @@ class _TimelineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final color = incidentStateColor(event.toState);
     final label = event.toState[0].toUpperCase() +
         event.toState.substring(1).replaceAll('_', ' ');
@@ -436,7 +437,7 @@ class _TimelineRow extends StatelessWidget {
                     color: color,
                     shape: BoxShape.circle,
                     border: Border.all(
-                        color: Colors.white, width: 2),
+                        color: cs.surface, width: 2),
                     boxShadow: [
                       BoxShadow(
                           color: color.withAlpha(60),
@@ -449,7 +450,7 @@ class _TimelineRow extends StatelessWidget {
                   Expanded(
                     child: Container(
                       width: 2,
-                      color: const Color(0xFFE5E7EB),
+                      color: cs.outlineVariant,
                     ),
                   ),
               ],
@@ -466,36 +467,36 @@ class _TimelineRow extends StatelessWidget {
                   Row(
                     children: [
                       Text(label,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
-                              color: Color(0xFF111827))),
+                              color: cs.onSurface)),
                       const Spacer(),
                       Text(_fmt(event.at),
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF9CA3AF))),
+                              color: cs.outline)),
                     ],
                   ),
                   const SizedBox(height: 2),
                   Text(sourceLabel,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF9CA3AF))),
+                          color: cs.outline)),
                   if (event.note != null) ...[
                     const SizedBox(height: 4),
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF9FAFB),
+                        color: cs.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(8),
-                        border: const Border.fromBorderSide(
-                            BorderSide(color: Color(0xFFE5E7EB))),
+                        border: Border.fromBorderSide(
+                            BorderSide(color: cs.outlineVariant)),
                       ),
                       child: Text(event.note!,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF374151))),
+                              color: cs.onSurface)),
                     ),
                   ],
                 ],
@@ -557,42 +558,43 @@ class _CommentsSectionState extends ConsumerState<_CommentsSection> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final commentsAsync =
         ref.watch(incidentCommentsProvider(widget.incidentId));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Discussion',
+        Text('Discussion',
             style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 15,
-                color: Color(0xFF111827))),
+                color: cs.onSurface)),
         const SizedBox(height: 12),
         commentsAsync.when(
           loading: () => const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Center(child: DotsLoader()),
           ),
-          error: (_, st) => const Text('Could not load comments',
-              style: TextStyle(color: Color(0xFF9CA3AF))),
+          error: (_, st) => Text('Could not load comments',
+              style: TextStyle(color: cs.onSurfaceVariant)),
           data: (comments) => comments.isEmpty
               ? Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
+                    color: cs.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
-                    border: const Border.fromBorderSide(
-                        BorderSide(color: Color(0xFFE5E7EB))),
+                    border: Border.fromBorderSide(
+                        BorderSide(color: cs.outlineVariant)),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
                       Icon(Icons.chat_bubble_outline,
-                          size: 16, color: Color(0xFFD1D5DB)),
-                      SizedBox(width: 8),
+                          size: 16, color: cs.outlineVariant),
+                      const SizedBox(width: 8),
                       Text('No comments yet — be the first.',
                           style: TextStyle(
-                              color: Color(0xFF9CA3AF),
+                              color: cs.onSurfaceVariant,
                               fontSize: 13)),
                     ],
                   ),
@@ -641,6 +643,7 @@ class _CommentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -650,25 +653,25 @@ class _CommentTile extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
+              color: cs.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.person_outline,
-                size: 16, color: Color(0xFF9CA3AF)),
+            child: Icon(Icons.person_outline,
+                size: 16, color: cs.outline),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
+                color: cs.surfaceContainerHighest,
                 borderRadius: const BorderRadius.only(
                   topRight: Radius.circular(12),
                   bottomLeft: Radius.circular(12),
                   bottomRight: Radius.circular(12),
                 ),
-                border: const Border.fromBorderSide(
-                    BorderSide(color: Color(0xFFE5E7EB))),
+                border: Border.fromBorderSide(
+                    BorderSide(color: cs.outlineVariant)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -678,24 +681,24 @@ class _CommentTile extends StatelessWidget {
                       if (comment.district != null)
                         Text(
                           comment.district!,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 11,
-                              color: Color(0xFF374151)),
+                              color: cs.onSurface),
                         ),
                       const Spacer(),
                       Text(
                         _fmt(comment.createdAt),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 10,
-                            color: Color(0xFF9CA3AF)),
+                            color: cs.outline),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Text(comment.content,
-                      style: const TextStyle(
-                          fontSize: 13, color: Color(0xFF111827))),
+                      style: TextStyle(
+                          fontSize: 13, color: cs.onSurface)),
                 ],
               ),
             ),

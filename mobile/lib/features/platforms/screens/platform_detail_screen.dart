@@ -76,6 +76,7 @@ class _PlatformDetailScreenState
   @override
   Widget build(BuildContext context) {
     final p = widget.platform;
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: Text(p.name)),
       body: SingleChildScrollView(
@@ -101,27 +102,27 @@ class _PlatformDetailScreenState
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFF7ED),
+                      color: const Color(0xFFF97316).withAlpha(18),
                       borderRadius: BorderRadius.circular(12),
-                      border: const Border.fromBorderSide(
-                          BorderSide(color: Color(0xFFFED7AA))),
+                      border: Border.fromBorderSide(
+                          BorderSide(color: const Color(0xFFF97316).withAlpha(80))),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(Icons.forum_outlined,
+                        const Icon(Icons.forum_outlined,
                             size: 18, color: Color(0xFFF97316)),
-                        SizedBox(width: 10),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             'Active incident — tap to view thread',
                             style: TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF92400E),
+                              color: cs.onSurface,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
-                        Icon(Icons.chevron_right,
+                        const Icon(Icons.chevron_right,
                             size: 18, color: Color(0xFFF97316)),
                       ],
                     ),
@@ -131,18 +132,18 @@ class _PlatformDetailScreenState
 
             // ── Report section ─────────────────────────────────────────
             Container(
-              color: Colors.white,
+              color: cs.surface,
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'How is it working for you right now?',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF374151),
+                      color: cs.onSurface,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -171,8 +172,8 @@ class _PlatformDetailScreenState
                     const SizedBox(height: 10),
                     Text(_message!,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            color: Color(0xFF6B7280), fontSize: 13)),
+                        style: TextStyle(
+                            color: cs.onSurfaceVariant, fontSize: 13)),
                   ],
                 ],
               ),
@@ -322,7 +323,6 @@ class _AffectedReportSheetState
               ),
             ),
             const SizedBox(height: 12),
-            // Image preview or picker button
             if (_imageFile != null)
               Stack(
                 children: [
@@ -423,11 +423,13 @@ class _IncidentHistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final color = switch (incident.state) {
       'resolved' => Colors.green,
       'confirmed' || 'recurred' => Colors.red,
       _ => Colors.orange,
     };
+    final dimColor = cs.onSurface.withAlpha(100);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
@@ -449,12 +451,12 @@ class _IncidentHistoryRow extends StatelessWidget {
               padding: const EdgeInsets.only(right: 8),
               child: Text(
                 '#${incident.recurrenceCount}',
-                style: const TextStyle(fontSize: 11, color: Colors.black45),
+                style: TextStyle(fontSize: 11, color: dimColor),
               ),
             ),
           Text(
             incident.durationLabel,
-            style: const TextStyle(fontSize: 12, color: Colors.black45),
+            style: TextStyle(fontSize: 12, color: dimColor),
           ),
         ],
       ),
@@ -468,17 +470,18 @@ class _StatusHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final hasIssue = platform.hasIssue;
     final statusColor =
         hasIssue ? const Color(0xFFEF4444) : const Color(0xFF16A34A);
 
     return Container(
-      color: Colors.white,
+      color: cs.surface,
       padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // ── Operator logo / uptime ring / status circle ───────────────
+          // ── Platform logo / uptime ring / status circle ───────────────
           if (platform.operatorAvatarUrl != null)
             _OperatorLogo(
               url: platform.operatorAvatarUrl!,
@@ -531,17 +534,17 @@ class _StatusHeader extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   platform.authorityName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF111827),
+                    color: cs.onSurface,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   platform.category,
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF9CA3AF)),
+                  style: TextStyle(
+                      fontSize: 12, color: cs.onSurfaceVariant),
                 ),
               ],
             ),
