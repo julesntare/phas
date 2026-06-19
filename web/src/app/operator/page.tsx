@@ -4,11 +4,11 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-type Step = 'email' | 'password' | 'activate';
+type Step = 'login' | 'activate';
 
 export default function OperatorLoginPage() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>('email');
+  const [step, setStep] = useState<Step>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -16,23 +16,6 @@ export default function OperatorLoginPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  async function handleEmailContinue(e: React.FormEvent) {
-    e.preventDefault();
-    setError(''); setLoading(true);
-    try {
-      const res = await fetch('/api/operator/check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Failed');
-      setStep(data.activated ? 'password' : 'activate');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed');
-    } finally { setLoading(false); }
-  }
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
@@ -44,6 +27,7 @@ export default function OperatorLoginPage() {
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
+      if (data.not_activated) { setStep('activate'); return; }
       if (!res.ok) throw new Error(data.error ?? 'Login failed');
       localStorage.setItem('operator_token', data.token);
       localStorage.setItem('operator_info', JSON.stringify(data.operator));
@@ -104,14 +88,14 @@ export default function OperatorLoginPage() {
       <div className="flex-1 flex items-center justify-center px-6 py-12 bg-gray-50">
         <div className="w-full max-w-sm">
 
-          {/* Step 1 — Email */}
-          {step === 'email' && (
+          {/* Step 1 — Login */}
+          {step === 'login' && (
             <>
               <div className="mb-8">
                 <h1 className="text-2xl font-extrabold text-gray-900">Sign in</h1>
                 <p className="text-gray-500 text-sm mt-1">Platform credentials required</p>
               </div>
-              <form onSubmit={handleEmailContinue} className="space-y-5">
+              <form onSubmit={handleSignIn} className="space-y-5">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
                   <input
@@ -120,34 +104,11 @@ export default function OperatorLoginPage() {
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition"
                   />
                 </div>
-                {error && <ErrorBox message={error} />}
-                <button type="submit" disabled={loading}
-                  className="w-full py-3 bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold rounded-xl text-sm transition-colors">
-                  {loading ? 'Checking…' : 'Continue'}
-                </button>
-              </form>
-            </>
-          )}
-
-          {/* Step 2a — Password (activated account) */}
-          {step === 'password' && (
-            <>
-              <div className="mb-8">
-                <button onClick={() => { setStep('email'); setError(''); }}
-                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 mb-4 transition-colors">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                  Back
-                </button>
-                <h1 className="text-2xl font-extrabold text-gray-900">Enter password</h1>
-                <p className="text-gray-500 text-sm mt-1 truncate">{email}</p>
-              </div>
-              <form onSubmit={handleSignIn} className="space-y-5">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
                   <input
-                    type="password" value={password} onChange={e => setPassword(e.target.value)} required autoFocus
+                    type="password" value={password} onChange={e => setPassword(e.target.value)}
+                    placeholder="Leave blank if first sign-in"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition"
                   />
                 </div>
@@ -160,11 +121,11 @@ export default function OperatorLoginPage() {
             </>
           )}
 
-          {/* Step 2b — Activate (first-time setup) */}
+          {/* Step 2 — Activate (first-time setup) */}
           {step === 'activate' && (
             <>
               <div className="mb-8">
-                <button onClick={() => { setStep('email'); setError(''); }}
+                <button onClick={() => { setStep('login'); setError(''); }}
                   className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 mb-4 transition-colors">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />

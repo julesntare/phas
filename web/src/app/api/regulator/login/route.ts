@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 import { signRegulatorToken, verifyPassword, hashToken } from '@/lib/regulator-auth';
+import { generateSetupCode, sendSetupEmail } from '@/lib/email';
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const email: string = (body?.email ?? '').trim().toLowerCase();
   const password: string = body?.password ?? '';
 
-  if (!email || !password) {
-    return NextResponse.json({ error: 'email and password required' }, { status: 400 });
+  if (!email) {
+    return NextResponse.json({ error: 'email required' }, { status: 400 });
   }
 
   const [authority] = await sql<{
@@ -20,7 +21,23 @@ export async function POST(req: NextRequest) {
     LIMIT 1
   `;
 
-  if (!authority || !authority.password_hash || !verifyPassword(password, authority.password_hash)) {
+  if (!authority) {
+    return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
+  }
+
+  if (!authority.password_hash) {
+    const code = generateSetupCode();
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    await sql`
+      UPDATE authorities
+      SET setup_token = ${hashToken(code)}, setup_token_expires_at = ${expiresAt}
+      WHERE id = ${authority.id}
+    `;
+    await sendSetupEmail(email, code, 'regulator');
+    return NextResponse.json({ not_activated: true });
+  }
+
+  if (!verifyPassword(password, authority.password_hash)) {
     return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
   }
 
