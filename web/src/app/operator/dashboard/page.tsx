@@ -206,10 +206,13 @@ export default function OperatorDashboard() {
     if (!mwTitle || !mwStart || !mwEnd) return;
     setMwSaving(true); setMwError('');
     try {
+      // datetime-local gives local time without TZ — convert to UTC before sending
+      const starts_at = new Date(mwStart).toISOString();
+      const ends_at   = new Date(mwEnd).toISOString();
       const res = await fetch('/api/operator/maintenance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({ title: mwTitle, description: mwDesc || undefined, starts_at: mwStart, ends_at: mwEnd }),
+        body: JSON.stringify({ title: mwTitle, description: mwDesc || undefined, starts_at, ends_at }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed');

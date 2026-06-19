@@ -13,6 +13,10 @@ export async function GET() {
     state: string | null;
     opened_at: string | null;
     uptime_7d: number | null;
+    maintenance_id: string | null;
+    maintenance_title: string | null;
+    maintenance_starts_at: string | null;
+    maintenance_ends_at: string | null;
   }[]>`
     SELECT
       p.id,
@@ -23,7 +27,11 @@ export async function GET() {
       i.incident_id,
       i.state,
       i.opened_at,
-      u.uptime_7d
+      u.uptime_7d,
+      m.maintenance_id,
+      m.maintenance_title,
+      m.maintenance_starts_at,
+      m.maintenance_ends_at
     FROM platforms p
     JOIN authorities a ON a.id = p.authority_id
     LEFT JOIN LATERAL (
@@ -42,6 +50,17 @@ export async function GET() {
       WHERE platform_id = p.id
         AND ran_at > NOW() - INTERVAL '7 days'
     ) u ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT id   AS maintenance_id,
+             title AS maintenance_title,
+             starts_at AS maintenance_starts_at,
+             ends_at   AS maintenance_ends_at
+      FROM maintenance_windows
+      WHERE platform_id = p.id
+        AND ends_at > NOW()
+      ORDER BY starts_at ASC
+      LIMIT 1
+    ) m ON TRUE
     ORDER BY p.name
   `;
 

@@ -376,21 +376,30 @@ class _PlatformTile extends ConsumerWidget {
     final isFollowing = followed?.contains(platform.id) ?? false;
     final isLoadingFollow = followed == null;
     final hasIssue = platform.hasIssue;
-    final statusColor = hasIssue ? const Color(0xFFEF4444) : const Color(0xFF16A34A);
+    final mw = platform.maintenance;
+    final isMaintenance = mw?.isActive ?? false;
+    final statusColor = isMaintenance
+        ? const Color(0xFF0055A4)
+        : hasIssue
+            ? const Color(0xFFEF4444)
+            : const Color(0xFF16A34A);
 
     return InkWell(
       onTap: () =>
           context.push('/platforms/${platform.id}', extra: platform),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            left: BorderSide(
-              color: hasIssue ? statusColor : Colors.transparent,
-              width: 3,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+        Container(
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(
+                color: (hasIssue || isMaintenance) ? statusColor : Colors.transparent,
+                width: 3,
+              ),
             ),
           ),
-        ),
-        child: Padding(
+          child: Padding(
           padding: const EdgeInsets.fromLTRB(13, 12, 16, 12),
           child: Row(
             children: [
@@ -470,7 +479,65 @@ class _PlatformTile extends ConsumerWidget {
           ),
         ),
       ),
+      if (mw != null)
+        _MaintenanceStrip(mw: mw, isActive: isMaintenance),
+    ],
+  ),
+);
+  }
+}
+
+// ── Maintenance strip ─────────────────────────────────────────────────────────
+
+class _MaintenanceStrip extends StatelessWidget {
+  final MaintenanceWindow mw;
+  final bool isActive;
+  const _MaintenanceStrip({required this.mw, required this.isActive});
+
+  @override
+  Widget build(BuildContext context) {
+    const blue = Color(0xFF0055A4);
+    final label = isActive ? 'Maintenance: ${mw.title}' : 'Upcoming: ${mw.title}';
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      decoration: BoxDecoration(
+        color: isActive ? blue.withAlpha(15) : Colors.transparent,
+        border: Border(
+          top: BorderSide(color: blue.withAlpha(isActive ? 50 : 20)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.build_outlined,
+              size: 12,
+              color: isActive ? blue : Theme.of(context).colorScheme.outline),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: isActive ? blue : Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (!isActive)
+            Text(
+              _fmtDate(mw.startsAt),
+              style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.outline),
+            ),
+        ],
+      ),
     );
+  }
+
+  String _fmtDate(DateTime t) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${months[t.month - 1]} ${t.day}';
   }
 }
 
@@ -554,6 +621,35 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mw = platform.maintenance;
+
+    if (mw != null && mw.isActive) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0055A4).withAlpha(20),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF0055A4).withAlpha(80)),
+        ),
+        child: const Text('Maint.',
+            style: TextStyle(fontSize: 10, color: Color(0xFF0055A4),
+                fontWeight: FontWeight.w700)),
+      );
+    }
+
+    if (mw != null && mw.isUpcoming) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xFF6B7280).withAlpha(15),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text('Upcoming',
+            style: TextStyle(fontSize: 10, color: Color(0xFF6B7280),
+                fontWeight: FontWeight.w600)),
+      );
+    }
+
     if (!platform.hasIssue) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -566,6 +662,7 @@ class _StatusBadge extends StatelessWidget {
                 fontWeight: FontWeight.w700)),
       );
     }
+
     final (color, label) = switch (platform.state) {
       'confirmed'          => (const Color(0xFFEF4444), 'Issue'),
       'recurred'           => (const Color(0xFFDC2626), 'Recurred'),

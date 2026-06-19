@@ -86,6 +86,50 @@ class _PlatformDetailScreenState
             // ── Status header ──────────────────────────────────────────
             _StatusHeader(platform: p),
 
+            // ── Maintenance banner ─────────────────────────────────────
+            if (p.maintenance != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0055A4).withAlpha(15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.fromBorderSide(
+                        BorderSide(color: const Color(0xFF0055A4).withAlpha(70))),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.build_outlined,
+                          size: 16, color: Color(0xFF0055A4)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              p.maintenance!.isActive
+                                  ? 'Maintenance in progress'
+                                  : 'Scheduled maintenance',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF0055A4),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              p.maintenance!.title,
+                              style: TextStyle(
+                                  fontSize: 12, color: cs.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
             // ── Active incident banner ─────────────────────────────────
             if (p.incidentId != null)
               Padding(
@@ -471,9 +515,13 @@ class _StatusHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final mw = platform.maintenance;
     final hasIssue = platform.hasIssue;
-    final statusColor =
-        hasIssue ? const Color(0xFFEF4444) : const Color(0xFF16A34A);
+    final statusColor = (mw?.isActive ?? false)
+        ? const Color(0xFF0055A4)
+        : hasIssue
+            ? const Color(0xFFEF4444)
+            : const Color(0xFF16A34A);
 
     return Container(
       color: cs.surface,
