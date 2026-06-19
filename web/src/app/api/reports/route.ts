@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   const session = await auth();
   if (session?.user) {
-    citizenId = session.user.id ?? null;
+    citizenId = session.user.id || null; // empty string → null → triggers email fallback
     // Fallback: jwt callback may not have set citizenId yet — look up by email.
     if (!citizenId && session.user.email) {
       const [c] = await sql<{ id: string }[]>`

@@ -57,9 +57,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     async session({ session, token }) {
-      if (token.citizenId) {
-        session.user.id = token.citizenId as string;
-      }
+      // Always write session.user.id so NextAuth's default (token.sub = Google sub)
+      // never leaks through as a citizenId — empty string triggers the email fallback.
+      session.user.id = (token.citizenId as string) ?? '';
       return session;
     },
   },
