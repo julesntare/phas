@@ -236,6 +236,9 @@ class _PlatformDetailScreenState
               ),
             ),
 
+            // ── Citizen reports ────────────────────────────────────────
+            _ReportsSection(platformId: p.id),
+
             // ── Incident history ───────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
@@ -436,6 +439,154 @@ class _AffectedReportSheetState
         ),
       ),
     );
+  }
+}
+
+// ── Citizen reports ───────────────────────────────────────────────────────────
+
+class _ReportsSection extends ConsumerWidget {
+  final String platformId;
+  const _ReportsSection({required this.platformId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(platformReportsProvider(platformId));
+    return async.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (reports) {
+        if (reports.isEmpty) return const SizedBox.shrink();
+        final cs = Theme.of(context).colorScheme;
+        final affected = reports.where((r) => r.type == 'affected').length;
+        final ok = reports.where((r) => r.type == 'ok').length;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Divider(),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Citizen Reports',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  if (affected > 0) ...[
+                    _ReportCountBadge(
+                        label: '$affected affected',
+                        color: const Color(0xFFEF4444)),
+                    const SizedBox(width: 6),
+                  ],
+                  if (ok > 0)
+                    _ReportCountBadge(
+                        label: '$ok ok', color: const Color(0xFF16A34A)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ...reports.map((r) => _ReportCard(report: r, cs: cs)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ReportCountBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _ReportCountBadge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withAlpha(20),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withAlpha(80)),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+      );
+}
+
+class _ReportCard extends StatelessWidget {
+  final PlatformReport report;
+  final ColorScheme cs;
+  const _ReportCard({required this.report, required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    final isAffected = report.type == 'affected';
+    final color =
+        isAffected ? const Color(0xFFEF4444) : const Color(0xFF16A34A);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: color.withAlpha(20),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: color.withAlpha(80)),
+              ),
+              child: Text(
+                isAffected ? 'Affected' : 'OK',
+                style: TextStyle(
+                    fontSize: 11, color: color, fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (report.freeText != null) ...[
+                    Text(report.freeText!,
+                        style: TextStyle(
+                            fontSize: 13, color: cs.onSurface, height: 1.4)),
+                    const SizedBox(height: 3),
+                  ],
+                  Text(
+                    [
+                      _ago(report.createdAt),
+                      if (report.district != null) report.district!,
+                      if (!report.isAnonymous && report.reporterName != null)
+                        report.reporterName!,
+                    ].join(' · '),
+                    style:
+                        TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _ago(DateTime t) {
+    final diff = DateTime.now().difference(t);
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 }
 

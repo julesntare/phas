@@ -17,6 +17,36 @@ class MaintenanceWindow {
   bool get isUpcoming => DateTime.now().isBefore(startsAt);
 }
 
+class PlatformReport {
+  final String id;
+  final String type;
+  final DateTime createdAt;
+  final String? district;
+  final String? freeText;
+  final bool isAnonymous;
+  final String? reporterName;
+
+  const PlatformReport({
+    required this.id,
+    required this.type,
+    required this.createdAt,
+    this.district,
+    this.freeText,
+    required this.isAnonymous,
+    this.reporterName,
+  });
+
+  factory PlatformReport.fromJson(Map<String, dynamic> j) => PlatformReport(
+        id: j['id'] as String,
+        type: j['type'] as String,
+        createdAt: DateTime.parse(j['created_at'] as String),
+        district: j['district'] as String?,
+        freeText: j['free_text'] as String?,
+        isAnonymous: j['is_anonymous'] as bool,
+        reporterName: j['reporter_name'] as String?,
+      );
+}
+
 class Platform {
   final String id;
   final String name;

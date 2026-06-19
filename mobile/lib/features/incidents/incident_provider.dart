@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/incident.dart';
+import '../../models/platform.dart';
 import '../auth/auth_provider.dart';
 
 // ── Incident detail (read) ────────────────────────────────────────────────────
@@ -31,6 +32,18 @@ final platformIncidentHistoryProvider =
       .get('/api/platforms/$platformId/incidents');
   return (data['incidents'] as List<dynamic>)
       .map((i) => PlatformIncident.fromJson(i as Map<String, dynamic>))
+      .toList();
+});
+
+// ── Platform citizen reports (last 48h) ──────────────────────────────────────
+
+final platformReportsProvider =
+    FutureProvider.autoDispose.family<List<PlatformReport>, String>((ref, platformId) async {
+  final data = await ref
+      .read(apiClientProvider)
+      .get('/api/platforms/$platformId/reports');
+  return (data['reports'] as List<dynamic>)
+      .map((r) => PlatformReport.fromJson(r as Map<String, dynamic>))
       .toList();
 });
 
