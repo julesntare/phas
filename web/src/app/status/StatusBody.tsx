@@ -22,7 +22,7 @@ export interface PlatformRow {
 }
 
 const STATE_LABEL: Record<string, string> = {
-  detected: 'Investigating', confirmed: 'Confirmed issue',
+  detected: 'Reported', confirmed: 'Confirmed issue',
   acknowledged: 'Acknowledged', partially_resolved: 'Partially resolved', recurred: 'Recurred',
 };
 const HIST_DOT: Record<string, string> = {

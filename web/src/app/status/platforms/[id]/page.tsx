@@ -9,9 +9,14 @@ interface IncidentRow {
   id: string; state: string; opened_at: string; closed_at: string | null;
   recurrence_count: number; event_count: string;
 }
+interface ReportRow {
+  id: string; type: 'affected' | 'ok'; created_at: string;
+  district: string | null; free_text: string | null;
+  is_anonymous: boolean; reporter_name: string | null;
+}
 
 const STATE_LABEL: Record<string, string> = {
-  detected: 'Investigating', confirmed: 'Confirmed', acknowledged: 'Acknowledged',
+  detected: 'Reported', confirmed: 'Confirmed', acknowledged: 'Acknowledged',
   partially_resolved: 'Partially resolved', recurred: 'Recurred', resolved: 'Resolved',
 };
 const STATE_CLASSES: Record<string, string> = {
@@ -38,7 +43,7 @@ const DATE_OPTS: Intl.DateTimeFormatOptions = {
 export default async function PlatformHistoryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const [platformRows, incidentRows, uptimeRows] = await Promise.all([
+  const [platformRows, incidentRows, uptimeRows, reportRows] = await Promise.all([
     sql<{ name: string; category: string; authority_name: string; operator_avatar_url: string | null }[]>`
       SELECT p.name, p.category, a.name AS authority_name, p.avatar_url AS operator_avatar_url
       FROM platforms p
@@ -64,6 +69,16 @@ export default async function PlatformHistoryPage({ params }: { params: Promise<
       FROM probe_results
       WHERE platform_id = ${id}
     `,
+    sql<ReportRow[]>`
+      SELECT r.id, r.type, r.created_at, r.district, r.free_text, r.is_anonymous,
+             CASE WHEN r.is_anonymous THEN NULL ELSE ca.name END AS reporter_name
+      FROM reports r
+      LEFT JOIN citizen_accounts ca ON ca.id = r.reporter_id
+      WHERE r.platform_id = ${id}
+        AND r.created_at > NOW() - INTERVAL '48 hours'
+      ORDER BY r.created_at DESC
+      LIMIT 100
+    `,
   ]);
 
   if (platformRows.length === 0) notFound();
@@ -72,6 +87,8 @@ export default async function PlatformHistoryPage({ params }: { params: Promise<
   const uptime = uptimeRows[0];
   const activeIncidents = incidentRows.filter(i => i.state !== 'resolved');
   const resolvedIncidents = incidentRows.filter(i => i.state === 'resolved');
+  const affectedCount = reportRows.filter(r => r.type === 'affected').length;
+  const okCount = reportRows.filter(r => r.type === 'ok').length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -146,6 +163,34 @@ export default async function PlatformHistoryPage({ params }: { params: Promise<
           </section>
         )}
 
+        {/* Crowd reports (last 48h) */}
+        {reportRows.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
+                Citizen reports
+              </h2>
+              <div className="flex items-center gap-2 text-xs">
+                {affectedCount > 0 && (
+                  <span className="bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-full font-semibold">
+                    {affectedCount} affected
+                  </span>
+                )}
+                {okCount > 0 && (
+                  <span className="bg-green-50 text-green-600 border border-green-200 px-2 py-0.5 rounded-full font-semibold">
+                    {okCount} ok
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              {reportRows.map(r => (
+                <ReportCard key={r.id} report={r} />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Incident history */}
         <section>
           <div className="flex items-center justify-between mb-3">
@@ -170,6 +215,33 @@ export default async function PlatformHistoryPage({ params }: { params: Promise<
             </div>
           )}
         </section>
+      </div>
+    </div>
+  );
+}
+
+function ReportCard({ report: r }: { report: ReportRow }) {
+  const isAffected = r.type === 'affected';
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 px-4 py-3 shadow-sm flex items-start gap-3">
+      <span className={`mt-0.5 shrink-0 text-xs font-bold px-2 py-0.5 rounded-full border ${
+        isAffected
+          ? 'bg-red-50 text-red-600 border-red-200'
+          : 'bg-green-50 text-green-600 border-green-200'
+      }`}>
+        {isAffected ? 'Affected' : 'OK'}
+      </span>
+      <div className="min-w-0 flex-1">
+        {r.free_text && (
+          <p className="text-sm text-gray-700 leading-snug">{r.free_text}</p>
+        )}
+        <p className="text-xs text-gray-400 mt-1 flex items-center gap-2 flex-wrap">
+          <LocalDate date={r.created_at} options={{ month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }} />
+          {r.district && <span>· {r.district}</span>}
+          {r.reporter_name && !r.is_anonymous && (
+            <span className="text-gray-500">· {r.reporter_name}</span>
+          )}
+        </p>
       </div>
     </div>
   );

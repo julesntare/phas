@@ -76,7 +76,7 @@ class Platform {
     final mw = maintenance;
     if (mw != null && mw.isActive) return 'Maintenance';
     return switch (state) {
-      'detected'           => 'Investigating',
+      'detected'           => 'Reported',
       'confirmed'          => 'Confirmed issue',
       'acknowledged'       => 'Acknowledged',
       'partially_resolved' => 'Partially resolved',

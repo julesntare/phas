@@ -47,7 +47,7 @@ class Incident {
   }
 
   String get stateLabel => switch (state) {
-        'detected'           => 'Investigating',
+        'detected'           => 'Reported',
         'confirmed'          => 'Confirmed',
         'acknowledged'       => 'Acknowledged',
         'partially_resolved' => 'Partially resolved',
@@ -88,7 +88,7 @@ class PlatformIncident {
   Duration? get duration => closedAt?.difference(openedAt);
 
   String get stateLabel => switch (state) {
-        'detected'           => 'Investigating',
+        'detected'           => 'Reported',
         'confirmed'          => 'Confirmed',
         'acknowledged'       => 'Acknowledged',
         'partially_resolved' => 'Partially resolved',
