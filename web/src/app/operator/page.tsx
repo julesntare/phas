@@ -91,7 +91,7 @@ export default function OperatorLoginPage() {
             </svg>
           </div>
           <h2 className="text-3xl font-extrabold text-white leading-tight mb-3">
-            Operator<br />Portal
+            Platform<br />Portal
           </h2>
           <p className="text-white/60 text-sm leading-relaxed">
             Manage platform incidents, post updates, and coordinate resolutions for the platforms you operate.
@@ -109,14 +109,14 @@ export default function OperatorLoginPage() {
             <>
               <div className="mb-8">
                 <h1 className="text-2xl font-extrabold text-gray-900">Sign in</h1>
-                <p className="text-gray-500 text-sm mt-1">Operator credentials required</p>
+                <p className="text-gray-500 text-sm mt-1">Platform credentials required</p>
               </div>
               <form onSubmit={handleEmailContinue} className="space-y-5">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
                   <input
                     type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus
-                    placeholder="operator@example.com"
+                    placeholder="platform@example.com"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition"
                   />
                 </div>

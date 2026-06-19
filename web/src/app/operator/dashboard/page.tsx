@@ -284,7 +284,7 @@ export default function OperatorDashboard() {
           <div className="flex items-center gap-3">
             <Image src="/phas-icon.png" alt="PHAS" width={28} height={28} className="rounded-lg" />
             <div>
-              <p className="text-sm font-bold text-gray-900 leading-none">Operator Portal</p>
+              <p className="text-sm font-bold text-gray-900 leading-none">Platform Portal</p>
               {operatorName && <p className="text-xs text-gray-400 leading-none mt-0.5">{operatorName}</p>}
             </div>
           </div>
