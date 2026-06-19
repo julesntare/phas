@@ -15,6 +15,7 @@ export async function GET() {
     uptime_7d: number | null;
     maintenance_id: string | null;
     maintenance_title: string | null;
+    maintenance_description: string | null;
     maintenance_starts_at: string | null;
     maintenance_ends_at: string | null;
   }[]>`
@@ -30,6 +31,7 @@ export async function GET() {
       u.uptime_7d,
       m.maintenance_id,
       m.maintenance_title,
+      m.maintenance_description,
       m.maintenance_starts_at,
       m.maintenance_ends_at
     FROM platforms p
@@ -51,10 +53,11 @@ export async function GET() {
         AND ran_at > NOW() - INTERVAL '7 days'
     ) u ON TRUE
     LEFT JOIN LATERAL (
-      SELECT id   AS maintenance_id,
-             title AS maintenance_title,
-             starts_at AS maintenance_starts_at,
-             ends_at   AS maintenance_ends_at
+      SELECT id          AS maintenance_id,
+             title       AS maintenance_title,
+             description AS maintenance_description,
+             starts_at   AS maintenance_starts_at,
+             ends_at     AS maintenance_ends_at
       FROM maintenance_windows
       WHERE platform_id = p.id
         AND ends_at > NOW()

@@ -120,8 +120,21 @@ class _PlatformDetailScreenState
                             Text(
                               p.maintenance!.title,
                               style: TextStyle(
-                                  fontSize: 12, color: cs.onSurfaceVariant),
+                                  fontSize: 12,
+                                  color: cs.onSurface,
+                                  fontWeight: FontWeight.w500),
                             ),
+                            if (p.maintenance!.description != null &&
+                                p.maintenance!.description!.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                p.maintenance!.description!,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: cs.onSurfaceVariant,
+                                    height: 1.45),
+                              ),
+                            ],
                           ],
                         ),
                       ),

@@ -384,13 +384,13 @@ class _PlatformTile extends ConsumerWidget {
             ? const Color(0xFFEF4444)
             : const Color(0xFF16A34A);
 
-    return InkWell(
-      onTap: () =>
-          context.push('/platforms/${platform.id}', extra: platform),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-        Container(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: () =>
+              context.push('/platforms/${platform.id}', extra: platform),
+          child: Container(
           decoration: BoxDecoration(
             border: Border(
               left: BorderSide(
@@ -472,58 +472,112 @@ class _PlatformTile extends ConsumerWidget {
           ),
         ),
       ),
-      if (mw != null)
-        _MaintenanceStrip(mw: mw, isActive: isMaintenance),
-    ],
-  ),
+    ),
+    if (mw != null)
+      _MaintenanceStrip(mw: mw, isActive: isMaintenance),
+  ],
 );
   }
 }
 
 // ── Maintenance strip ─────────────────────────────────────────────────────────
 
-class _MaintenanceStrip extends StatelessWidget {
+class _MaintenanceStrip extends StatefulWidget {
   final MaintenanceWindow mw;
   final bool isActive;
   const _MaintenanceStrip({required this.mw, required this.isActive});
 
   @override
+  State<_MaintenanceStrip> createState() => _MaintenanceStripState();
+}
+
+class _MaintenanceStripState extends State<_MaintenanceStrip> {
+  bool _expanded = false;
+
+  static const _blue = Color(0xFF0055A4);
+
+  @override
   Widget build(BuildContext context) {
-    const blue = Color(0xFF0055A4);
-    final label = isActive ? 'Maintenance: ${mw.title}' : 'Upcoming: ${mw.title}';
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-      decoration: BoxDecoration(
-        color: isActive ? blue.withAlpha(15) : Colors.transparent,
-        border: Border(
-          top: BorderSide(color: blue.withAlpha(isActive ? 50 : 20)),
+    final cs = Theme.of(context).colorScheme;
+    final mw = widget.mw;
+    final isActive = widget.isActive;
+    final hasDesc = mw.description != null && mw.description!.isNotEmpty;
+
+    final headerLabel = isActive ? mw.title : 'Upcoming: ${mw.title}';
+    final iconColor = isActive ? _blue : cs.outline;
+    final textColor = isActive ? _blue : cs.onSurfaceVariant;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: hasDesc ? () => setState(() => _expanded = !_expanded) : null,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isActive ? _blue.withAlpha(15) : Colors.transparent,
+          border: Border(
+              top: BorderSide(color: _blue.withAlpha(isActive ? 50 : 20))),
         ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.build_outlined,
-              size: 12,
-              color: isActive ? blue : Theme.of(context).colorScheme.outline),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: isActive ? blue : Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header row ──────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Row(
+                children: [
+                  Icon(
+                    isActive ? Icons.build_rounded : Icons.build_outlined,
+                    size: 12, color: iconColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      headerLabel,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: textColor,
+                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (!isActive) ...[
+                    Text(
+                      _fmtDate(mw.startsAt),
+                      style: TextStyle(fontSize: 11, color: cs.outline),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  if (hasDesc)
+                    AnimatedRotation(
+                      turns: _expanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(Icons.keyboard_arrow_down,
+                          size: 14, color: iconColor),
+                    ),
+                ],
               ),
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          if (!isActive)
-            Text(
-              _fmtDate(mw.startsAt),
-              style: TextStyle(
-                  fontSize: 11,
-                  color: Theme.of(context).colorScheme.outline),
+            // ── Expandable body ─────────────────────────────────────────
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeInOut,
+              alignment: Alignment.topCenter,
+              child: _expanded && hasDesc
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(34, 0, 16, 10),
+                      child: Text(
+                        mw.description!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant,
+                          height: 1.45,
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }

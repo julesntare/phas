@@ -1,12 +1,14 @@
 class MaintenanceWindow {
   final String id;
   final String title;
+  final String? description;
   final DateTime startsAt;
   final DateTime endsAt;
 
   const MaintenanceWindow({
     required this.id,
     required this.title,
+    this.description,
     required this.startsAt,
     required this.endsAt,
   });
@@ -60,6 +62,7 @@ class Platform {
           final String id => MaintenanceWindow(
               id: id,
               title: j['maintenance_title'] as String,
+              description: j['maintenance_description'] as String?,
               startsAt: DateTime.parse(j['maintenance_starts_at'] as String),
               endsAt: DateTime.parse(j['maintenance_ends_at'] as String),
             ),
