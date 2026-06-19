@@ -2,12 +2,13 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import sql from '@/lib/db';
 import LocalDate from '@/components/LocalDate';
+import CoSignButton from './CoSignButton';
 
 export const revalidate = 60;
 
 interface IncidentRow {
   id: string; state: string; opened_at: string; closed_at: string | null;
-  recurrence_count: number; event_count: string;
+  recurrence_count: number; event_count: string; cosign_count: string;
 }
 interface ReportRow {
   id: string; type: 'affected' | 'ok'; created_at: string;
@@ -52,9 +53,11 @@ export default async function PlatformHistoryPage({ params }: { params: Promise<
     `,
     sql<IncidentRow[]>`
       SELECT i.id, i.state, i.opened_at, i.closed_at, i.recurrence_count,
-             COUNT(e.id) AS event_count
+             COUNT(DISTINCT e.id) AS event_count,
+             COUNT(DISTINCT r.id) AS cosign_count
       FROM incidents i
       LEFT JOIN incident_events e ON e.incident_id = i.id
+      LEFT JOIN reports r ON r.incident_id = i.id
       WHERE i.platform_id = ${id}
       GROUP BY i.id
       ORDER BY i.opened_at DESC
@@ -249,39 +252,57 @@ function ReportCard({ report: r }: { report: ReportRow }) {
 
 function IncidentRow({ incident: inc }: { incident: IncidentRow }) {
   const cls = STATE_CLASSES[inc.state] ?? 'bg-gray-50 text-gray-600 border-gray-200';
+  const isActive = inc.state !== 'resolved';
+  const cosignCount = Number(inc.cosign_count);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 px-4 py-3.5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${cls}`}>
-              {STATE_LABEL[inc.state] ?? inc.state}
-            </span>
-            {inc.recurrence_count > 0 && (
-              <span className="text-xs text-red-500 font-semibold">
-                Recurrence #{inc.recurrence_count}
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <Link
+        href={`/status/incidents/${inc.id}`}
+        className="block px-4 py-3.5 hover:bg-gray-50/60 transition-colors no-underline"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${cls}`}>
+                {STATE_LABEL[inc.state] ?? inc.state}
               </span>
-            )}
-          </div>
-          <p className="text-xs text-gray-400 mt-1.5">
-            <LocalDate date={inc.opened_at} options={DATE_OPTS} />
-            {inc.closed_at && (
-              <> — <LocalDate date={inc.closed_at} options={DATE_OPTS} /></>
-            )}
-          </p>
-        </div>
-        <div className="text-right shrink-0">
-          {inc.closed_at ? (
-            <p className="text-sm font-bold text-gray-700">
-              {formatDuration(inc.opened_at, inc.closed_at)}
+              {inc.recurrence_count > 0 && (
+                <span className="text-xs text-red-500 font-semibold">
+                  Recurrence #{inc.recurrence_count}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5">
+              <LocalDate date={inc.opened_at} options={DATE_OPTS} />
+              {inc.closed_at && (
+                <> — <LocalDate date={inc.closed_at} options={DATE_OPTS} /></>
+              )}
             </p>
-          ) : (
-            <p className="text-sm font-bold text-red-500">Ongoing</p>
-          )}
-          <p className="text-xs text-gray-400 mt-0.5">{inc.event_count} updates</p>
+          </div>
+          <div className="text-right shrink-0">
+            {inc.closed_at ? (
+              <p className="text-sm font-bold text-gray-700">
+                {formatDuration(inc.opened_at, inc.closed_at)}
+              </p>
+            ) : (
+              <p className="text-sm font-bold text-red-500">Ongoing</p>
+            )}
+            <p className="text-xs text-gray-400 mt-0.5">{inc.event_count} updates</p>
+          </div>
         </div>
-      </div>
+      </Link>
+      {/* Co-sign strip — only on active incidents */}
+      {isActive && (
+        <div className="px-4 py-2.5 border-t border-gray-50 flex items-center justify-between gap-3">
+          <span className="text-xs text-gray-400">
+            {cosignCount > 0
+              ? `${cosignCount} ${cosignCount === 1 ? 'person' : 'people'} affected`
+              : 'No confirmations yet'}
+          </span>
+          <CoSignButton incidentId={inc.id} />
+        </div>
+      )}
     </div>
   );
 }
