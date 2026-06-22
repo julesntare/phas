@@ -87,10 +87,7 @@ async function sendFcmMessage(
 
 async function resolveServiceAccount(): Promise<{ sa: ServiceAccount; accessToken: string } | null> {
   const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
-  if (!saRaw) {
-    console.log('[FCM] FIREBASE_SERVICE_ACCOUNT_BASE64 not set — skipping');
-    return null;
-  }
+  if (!saRaw) return null;
   const sa: ServiceAccount = JSON.parse(Buffer.from(saRaw, 'base64').toString('utf8'));
   const accessToken = await getFcmAccessToken(sa);
   return { sa, accessToken };
@@ -104,15 +101,12 @@ async function sendToTokens(
   accessToken: string,
   projectId: string,
 ): Promise<void> {
-  console.log(`[FCM] sending "${title}" to ${tokens.length} device(s)`);
   const stale: string[] = [];
   for (const token of tokens) {
     const result = await sendFcmMessage(token, title, body, data, accessToken, projectId);
-    console.log(`[FCM] token ${token.slice(0, 12)}… → ${result}`);
     if (result === 'invalid_token') stale.push(token);
   }
   if (stale.length > 0) {
-    console.log(`[FCM] removing ${stale.length} stale token(s)`);
     await sql`DELETE FROM device_tokens WHERE token = ANY(${stale})`;
   }
 }
@@ -191,8 +185,6 @@ export async function dispatchNotifications(
   platformId: string,
   incidentId: string,
 ): Promise<void> {
-  console.log(`[FCM] dispatchNotifications platformId=${platformId} incidentId=${incidentId}`);
-
   const [platform] = await sql<{ name: string }[]>`
     SELECT name FROM platforms WHERE id = ${platformId}
   `;
@@ -210,7 +202,6 @@ export async function dispatchNotifications(
           )
       )
   `;
-  console.log(`[FCM] ${targets.length} subscriber(s) not yet notified (${targets.filter(t => t.user_id).length} phone, ${targets.filter(t => t.citizen_id).length} google)`);
   if (targets.length === 0) return;
 
   // Collect device tokens for both user types.
@@ -228,13 +219,9 @@ export async function dispatchNotifications(
       SELECT token FROM device_tokens WHERE citizen_id = ANY(${citizenIds}::uuid[])
     `);
   }
-  console.log(`[FCM] ${tokenRows.length} device token(s) found (${userIds.length} phone user ids, ${citizenIds.length} google citizen ids)`);
 
   await markNotified(targets, incidentId);
-  if (tokenRows.length === 0) {
-    console.log('[FCM] no device tokens — notification skipped');
-    return;
-  }
+  if (tokenRows.length === 0) return;
 
   const creds = await resolveServiceAccount();
   if (!creds) return;
