@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
       ON CONFLICT (token) DO UPDATE
         SET citizen_id = ${user.sub}, user_id = NULL, platform = ${platform}, updated_at = NOW()
     `;
+    console.log(`[devices] registered token for citizen ${user.sub} (${platform})`);
   } else {
     await sql`
       INSERT INTO device_tokens (user_id, token, platform, updated_at)
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
       ON CONFLICT (token) DO UPDATE
         SET user_id = ${user.sub}, citizen_id = NULL, platform = ${platform}, updated_at = NOW()
     `;
+    console.log(`[devices] registered token for user ${user.sub} (${platform})`);
   }
 
   return NextResponse.json({ ok: true });
