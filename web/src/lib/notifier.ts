@@ -68,7 +68,10 @@ async function sendFcmMessage(
         token,
         notification: { title, body },
         data,
-        android: { priority: 'HIGH' },
+        android: {
+          priority: 'HIGH',
+          notification: { channel_id: 'incidents' },
+        },
       },
     }),
   });
