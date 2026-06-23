@@ -7,7 +7,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   let operator;
-  try { operator = await requireOperatorAuth(req.headers.get('authorization')); }
+  try { operator = await requireOperatorAuth(req.headers.get('authorization'), req.headers.get('x-api-key')); }
   catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
 
   const { id } = await params;
@@ -48,7 +48,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   let operator;
-  try { operator = await requireOperatorAuth(req.headers.get('authorization')); }
+  try { operator = await requireOperatorAuth(req.headers.get('authorization'), req.headers.get('x-api-key')); }
   catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
 
   const { id } = await params;

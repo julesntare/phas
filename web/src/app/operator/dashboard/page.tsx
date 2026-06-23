@@ -338,6 +338,10 @@ export default function OperatorDashboard() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={profile.avatarUrl} alt="avatar" className="w-8 h-8 rounded-full object-cover border border-gray-200" />
             )}
+            <Link href="/operator/api-keys"
+              className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors no-underline">
+              API Keys
+            </Link>
             <button onClick={signOut}
               className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
               Sign out

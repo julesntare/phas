@@ -4,7 +4,7 @@ import { requireOperatorAuth } from '@/lib/operator-auth';
 
 export async function GET(req: NextRequest) {
   let op;
-  try { op = await requireOperatorAuth(req.headers.get('authorization')); }
+  try { op = await requireOperatorAuth(req.headers.get('authorization'), req.headers.get('x-api-key')); }
   catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
 
   const pid = op.platformId;

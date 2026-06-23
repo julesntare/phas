@@ -19,7 +19,7 @@ const ACTION_TO_STATE: Record<string, string> = {
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   let op;
   try {
-    op = await requireOperatorAuth(req.headers.get('authorization'));
+    op = await requireOperatorAuth(req.headers.get('authorization'), req.headers.get('x-api-key'));
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   let op;
   try {
-    op = await requireOperatorAuth(req.headers.get('authorization'));
+    op = await requireOperatorAuth(req.headers.get('authorization'), req.headers.get('x-api-key'));
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

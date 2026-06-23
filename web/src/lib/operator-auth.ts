@@ -30,10 +30,26 @@ export async function verifyOperatorToken(token: string): Promise<OperatorPayloa
   return p;
 }
 
-export async function requireOperatorAuth(authHeader: string | null): Promise<OperatorPayload> {
+export async function requireOperatorAuth(
+  authHeader: string | null,
+  apiKeyHeader?: string | null,
+): Promise<OperatorPayload> {
+  // Long-lived API key (for machine-to-machine integrations).
+  if (apiKeyHeader?.startsWith('phas_')) {
+    const hash = hashToken(apiKeyHeader);
+    const [key] = await sql<{ id: string; platform_id: string }[]>`
+      SELECT id, platform_id FROM platform_api_keys WHERE key_hash = ${hash}
+    `;
+    if (!key) throw new Error('Invalid API key');
+    // Update last_used_at without blocking the response.
+    sql`UPDATE platform_api_keys SET last_used_at = NOW() WHERE id = ${key.id}`.catch(() => {});
+    return { sub: key.platform_id, email: '', platformId: key.platform_id, role: 'operator' };
+  }
+
+  // Standard short-lived operator JWT.
   if (!authHeader?.startsWith('Bearer ')) throw new Error('Missing token');
   const payload = await verifyOperatorToken(authHeader.slice(7));
-  const [row] = await sql<{ id: string }[]>`SELECT id FROM platforms WHERE id = ${payload.sub} LIMIT 1`;
+  const [row] = await sql<{ id: string }[]>`SELECT id FROM platforms WHERE id = ${payload.platformId} LIMIT 1`;
   if (!row) throw new Error('Platform not found');
   return payload;
 }

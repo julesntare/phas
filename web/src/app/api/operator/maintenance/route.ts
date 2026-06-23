@@ -4,7 +4,7 @@ import { requireOperatorAuth } from '@/lib/operator-auth';
 
 export async function GET(req: NextRequest) {
   let operator;
-  try { operator = await requireOperatorAuth(req.headers.get('authorization')); }
+  try { operator = await requireOperatorAuth(req.headers.get('authorization'), req.headers.get('x-api-key')); }
   catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
 
   const windows = await sql<{
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   let operator;
-  try { operator = await requireOperatorAuth(req.headers.get('authorization')); }
+  try { operator = await requireOperatorAuth(req.headers.get('authorization'), req.headers.get('x-api-key')); }
   catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
 
   const body = await req.json().catch(() => null);
