@@ -29,9 +29,10 @@ function uptimeBg(u: number | null) {
 
 function fmtHours(h: number | null) {
   if (h == null) return '—';
-  if (h < 1) return `${Math.round(h * 60)}m`;
-  if (h < 24) return `${h.toFixed(1)}h`;
-  return `${(h / 24).toFixed(1)}d`;
+  const n = Number(h);
+  if (n < 1) return `${Math.round(n * 60)}m`;
+  if (n < 24) return `${n.toFixed(1)}h`;
+  return `${(n / 24).toFixed(1)}d`;
 }
 
 function weekRange() {
@@ -71,14 +72,15 @@ export default async function WeeklyReportPage() {
   `;
 
   const totalPlatforms   = platforms.length;
-  const avgUptime        = platforms.filter(p => p.uptime_7d != null).length > 0
-    ? (platforms.reduce((s, p) => s + (p.uptime_7d ?? 0), 0) / platforms.filter(p => p.uptime_7d != null).length).toFixed(1)
+  const withUptime       = platforms.filter(p => p.uptime_7d != null);
+  const avgUptime        = withUptime.length > 0
+    ? (withUptime.reduce((s, p) => s + Number(p.uptime_7d), 0) / withUptime.length).toFixed(1)
     : null;
   const totalIncidents   = platforms.reduce((s, p) => s + Number(p.incidents_week), 0);
   const totalResolved    = platforms.reduce((s, p) => s + Number(p.resolved_week), 0);
   const totalReports     = platforms.reduce((s, p) => s + Number(p.reports_week), 0);
   const totalCosigns     = platforms.reduce((s, p) => s + Number(p.cosigns_week), 0);
-  const perfectUptime    = platforms.filter(p => p.uptime_7d === 100).length;
+  const perfectUptime    = platforms.filter(p => Number(p.uptime_7d) === 100).length;
 
   const range = weekRange();
   const shareUrl = `${BASE_URL}/status/weekly`;
@@ -216,13 +218,13 @@ export default async function WeeklyReportPage() {
 
         {/* Highlights */}
         {platforms.length > 0 && (() => {
-          const best    = [...platforms].sort((a, b) => (b.uptime_7d ?? 0) - (a.uptime_7d ?? 0))[0];
+          const best    = [...platforms].sort((a, b) => Number(b.uptime_7d ?? 0) - Number(a.uptime_7d ?? 0))[0];
           const mostRep = [...platforms].sort((a, b) => Number(b.reports_week) - Number(a.reports_week))[0];
           const fastest = platforms.filter(p => p.avg_resolution_hours != null)
-            .sort((a, b) => (a.avg_resolution_hours ?? 99999) - (b.avg_resolution_hours ?? 99999))[0];
+            .sort((a, b) => Number(a.avg_resolution_hours ?? 99999) - Number(b.avg_resolution_hours ?? 99999))[0];
           return (
             <div className="grid sm:grid-cols-3 gap-3">
-              {best?.uptime_7d === 100 && (
+              {Number(best?.uptime_7d) === 100 && (
                 <HighlightCard icon="🏆" label="Perfect uptime" value={best.name} sub="100% this week" />
               )}
               {Number(mostRep?.reports_week) > 0 && (
