@@ -64,6 +64,10 @@ export default async function StatusPage() {
             PHAS
           </Link>
           <div className="flex items-center gap-3">
+            <Link href="/status/weekly"
+              className="text-xs text-gray-500 hover:text-gray-800 no-underline hidden sm:block transition-colors">
+              Weekly report
+            </Link>
             <span className="text-xs text-gray-400 hidden sm:block">
               Updated <LocalDate options={{ hour: '2-digit', minute: '2-digit' }} />
             </span>

@@ -112,3 +112,68 @@ export async function sendIncidentAlert(opts: {
 
   await send(opts.to, subject, html);
 }
+
+export async function sendWeeklyReport(opts: {
+  to: string[];
+  range: string;
+  totalPlatforms: number;
+  avgUptime: string | null;
+  totalIncidents: number;
+  totalResolved: number;
+  totalReports: number;
+  perfectUptime: number;
+  reportUrl: string;
+}): Promise<void> {
+  if (opts.to.length === 0) return;
+
+  const subject = `[PHAS] 📊 Weekly Report — ${opts.range}`;
+
+  const statRow = (label: string, value: string) => `
+    <tr>
+      <td style="font-size:13px;color:#6b7280;padding:6px 0">${label}</td>
+      <td style="font-size:13px;color:#111827;font-weight:700;text-align:right;padding:6px 0">${value}</td>
+    </tr>`;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+    <tr><td align="center" style="padding:40px 16px">
+      <table width="560" cellpadding="0" cellspacing="0" role="presentation" style="background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden">
+        <tr><td style="background:linear-gradient(135deg,#1A6ED8 0%,#003A7A 100%);padding:24px 32px">
+          <p style="margin:0;font-size:18px;font-weight:800;color:#fff">PHAS</p>
+          <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.65)">Weekly Report — ${opts.range}</p>
+        </td></tr>
+        <tr><td style="padding:32px">
+          <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.6">
+            Here's a summary of platform performance for the past 7 days.
+          </p>
+          <table cellpadding="0" cellspacing="0" role="presentation" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;width:100%;margin-bottom:28px">
+            <tr><td style="padding:16px 20px">
+              <table cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                ${statRow('Platforms monitored', String(opts.totalPlatforms))}
+                ${statRow('Average uptime', opts.avgUptime ? `${opts.avgUptime}%` : '—')}
+                ${statRow('Incidents detected', String(opts.totalIncidents))}
+                ${statRow('Incidents resolved', String(opts.totalResolved))}
+                ${statRow('Citizen reports', String(opts.totalReports))}
+                ${statRow('Platforms with 100% uptime', String(opts.perfectUptime))}
+              </table>
+            </td></tr>
+          </table>
+          <a href="${opts.reportUrl}" style="display:inline-block;background:#0055A4;color:#fff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:8px">
+            View full report →
+          </a>
+        </td></tr>
+        <tr><td style="padding:16px 32px;border-top:1px solid #f3f4f6">
+          <p style="margin:0;font-size:11px;color:#9ca3af">Automated weekly digest from PHAS · Every Monday at 07:00 EAT</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`.trim();
+
+  await send(opts.to, subject, html);
+}
