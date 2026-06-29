@@ -20,6 +20,8 @@ interface Stats {
     id: string; state: string; opened_at: string; hours_open: string;
     platform_name: string; breach_type: string;
   }[];
+  recentReports: { id: string; platform_name: string; type: string; created_at: string }[];
+  recentResolved: { id: string; platform_name: string; opened_at: string; closed_at: string; hours_to_resolve: string }[];
   pendingSuggestions: number;
 }
 
@@ -365,15 +367,16 @@ export default function AdminDashboard() {
           <section className="space-y-6">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { label: 'Platforms',        value: stats.summary.total_platforms },
-                { label: 'Active incidents',  value: stats.summary.active_incidents },
-                { label: 'Reports this week', value: stats.summary.reports_this_week },
-                { label: 'Resolved this week',value: stats.summary.resolved_this_week },
+                { label: 'Platforms',         value: stats.summary.total_platforms,    action: () => setTab('platforms') },
+                { label: 'Active incidents',   value: stats.summary.active_incidents,   action: () => document.getElementById('incidents-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
+                { label: 'Reports this week',  value: stats.summary.reports_this_week,  action: () => document.getElementById('reports-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
+                { label: 'Resolved this week', value: stats.summary.resolved_this_week, action: () => document.getElementById('resolved-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
               ].map(c => (
-                <div key={c.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
-                  <p className="text-2xl font-bold text-gray-900">{c.value}</p>
+                <button key={c.label} onClick={c.action}
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 text-left hover:border-brand/40 hover:shadow-md transition-all group">
+                  <p className="text-2xl font-bold text-gray-900 group-hover:text-brand transition-colors">{c.value}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{c.label}</p>
-                </div>
+                </button>
               ))}
             </div>
 
@@ -391,7 +394,7 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div id="incidents-section" className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden scroll-mt-20">
               <div className="px-5 py-3 border-b border-gray-100">
                 <p className="text-sm font-bold text-gray-700">Active Incidents</p>
               </div>
@@ -421,6 +424,69 @@ export default function AdminDashboard() {
                           }`}>{i.state}</span>
                         </td>
                         <td className="px-5 py-3 text-right text-xs text-gray-400">{i.hours_open}h</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div id="reports-section" className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden scroll-mt-20">
+              <div className="px-5 py-3 border-b border-gray-100">
+                <p className="text-sm font-bold text-gray-700">Reports This Week</p>
+              </div>
+              {stats.recentReports.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-10">No reports this week</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-gray-400 font-semibold uppercase tracking-wide border-b border-gray-100">
+                      <th className="text-left px-5 py-3">Platform</th>
+                      <th className="text-left px-4 py-3">Type</th>
+                      <th className="text-right px-5 py-3">When</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {stats.recentReports.map(r => (
+                      <tr key={r.id} className="hover:bg-gray-50/60">
+                        <td className="px-5 py-2.5 font-semibold text-gray-900">{r.platform_name}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                            r.type === 'affected' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                          }`}>{r.type}</span>
+                        </td>
+                        <td className="px-5 py-2.5 text-right text-xs text-gray-400">
+                          {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div id="resolved-section" className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden scroll-mt-20">
+              <div className="px-5 py-3 border-b border-gray-100">
+                <p className="text-sm font-bold text-gray-700">Resolved This Week</p>
+              </div>
+              {stats.recentResolved.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-10">No resolved incidents this week</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-gray-400 font-semibold uppercase tracking-wide border-b border-gray-100">
+                      <th className="text-left px-5 py-3">Platform</th>
+                      <th className="text-left px-4 py-3 hidden sm:table-cell">Resolved</th>
+                      <th className="text-right px-5 py-3">Time to resolve</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {stats.recentResolved.map(i => (
+                      <tr key={i.id} className="hover:bg-gray-50/60">
+                        <td className="px-5 py-2.5 font-semibold text-gray-900">{i.platform_name}</td>
+                        <td className="px-4 py-2.5 hidden sm:table-cell text-xs text-gray-400">
+                          {new Date(i.closed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="px-5 py-2.5 text-right text-xs text-gray-500 font-semibold">{i.hours_to_resolve}h</td>
                       </tr>
                     ))}
                   </tbody>

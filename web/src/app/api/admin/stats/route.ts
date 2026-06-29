@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const [summary, activeIncidents, slaBreaches, pendingSuggestions] = await Promise.all([
+  const [summary, activeIncidents, slaBreaches, pendingSuggestions, recentReports, recentResolved] = await Promise.all([
     sql<{
       total_platforms: string;
       platforms_with_issues: string;
@@ -64,6 +64,26 @@ export async function GET(req: NextRequest) {
     `,
 
     sql<{ count: string }[]>`SELECT COUNT(*) AS count FROM suggestions WHERE status = 'pending'`,
+
+    sql<{ id: string; platform_name: string; type: string; created_at: Date }[]>`
+      SELECT r.id, p.name AS platform_name, r.type, r.created_at
+      FROM reports r
+      JOIN platforms p ON p.id = r.platform_id
+      WHERE r.created_at > NOW() - INTERVAL '7 days'
+      ORDER BY r.created_at DESC
+      LIMIT 20
+    `,
+
+    sql<{ id: string; platform_name: string; opened_at: Date; closed_at: Date; hours_to_resolve: string }[]>`
+      SELECT
+        i.id, p.name AS platform_name, i.opened_at, i.closed_at,
+        ROUND(EXTRACT(EPOCH FROM (i.closed_at - i.opened_at)) / 3600, 1)::TEXT AS hours_to_resolve
+      FROM incidents i
+      JOIN platforms p ON p.id = i.platform_id
+      WHERE i.state = 'resolved' AND i.closed_at > NOW() - INTERVAL '7 days'
+      ORDER BY i.closed_at DESC
+      LIMIT 10
+    `,
   ]);
 
   return NextResponse.json({
@@ -71,5 +91,7 @@ export async function GET(req: NextRequest) {
     activeIncidents,
     slaBreaches,
     pendingSuggestions: Number(pendingSuggestions[0]?.count ?? 0),
+    recentReports,
+    recentResolved,
   });
 }
