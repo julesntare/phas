@@ -4,6 +4,40 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
+interface Stats {
+  summary: {
+    total_platforms: string;
+    platforms_with_issues: string;
+    active_incidents: string;
+    resolved_this_week: string;
+    reports_this_week: string;
+  };
+  activeIncidents: {
+    id: string; state: string; opened_at: string; hours_open: string;
+    platform_name: string; authority_name: string;
+  }[];
+  slaBreaches: {
+    id: string; state: string; opened_at: string; hours_open: string;
+    platform_name: string; breach_type: string;
+  }[];
+  pendingSuggestions: number;
+}
+
+interface Suggestion {
+  id: string;
+  platform_id: string;
+  platform_name: string;
+  reporter_name: string | null;
+  title: string;
+  body: string;
+  category: string;
+  status: string;
+  upvotes: number;
+  admin_note: string | null;
+  operator_note: string | null;
+  created_at: string;
+}
+
 interface Platform {
   id: string; name: string; category: string; base_url: string;
   authority_id: string; authority_name: string;
@@ -18,7 +52,7 @@ interface AuthorityMeta { id: string; name: string }
 
 type AccountType = 'platform' | 'authority';
 type ModalMode = 'create' | 'edit';
-type Tab = 'platforms' | 'authorities';
+type Tab = 'platforms' | 'authorities' | 'overview' | 'suggestions';
 
 function Avatar({ url, name }: { url: string | null; name: string | null }) {
   if (url) return (
@@ -40,6 +74,12 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>('platforms');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggFilter, setSuggFilter] = useState('pending');
+  const [forwardModal, setForwardModal] = useState<{ id: string; title: string } | null>(null);
+  const [forwardNote, setForwardNote] = useState('');
+  const [actionError, setActionError] = useState('');
 
   const [modal, setModal] = useState<{ mode: ModalMode; type: AccountType; item?: Platform | AuthorityAccount } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -73,16 +113,19 @@ export default function AdminDashboard() {
     if (!secret) { router.replace('/admin'); return; }
     setLoading(true); setError('');
     try {
-      const [accountsRes, metaRes] = await Promise.all([
+      const [accountsRes, metaRes, statsRes] = await Promise.all([
         fetch('/api/admin/accounts', { headers: { Authorization: `Bearer ${secret}` } }),
         fetch('/api/admin/meta',     { headers: { Authorization: `Bearer ${secret}` } }),
+        fetch('/api/admin/stats',    { headers: { Authorization: `Bearer ${secret}` } }),
       ]);
       if (accountsRes.status === 401) { sessionStorage.removeItem('admin_secret'); router.replace('/admin'); return; }
       const accounts = await accountsRes.json();
       const meta = await metaRes.json();
+      const statsData = statsRes.ok ? await statsRes.json() : null;
       setPlatforms(accounts.platforms ?? []);
       setAuthoritiesData(accounts.authorities ?? []);
       setAuthoritiesMeta(meta.authorities ?? []);
+      setStats(statsData);
     } catch { setError('Failed to load data'); }
     finally { setLoading(false); }
   }, [router]);
@@ -244,6 +287,31 @@ export default function AdminDashboard() {
     } finally { setAvatarUploading(false); }
   }
 
+  const loadSuggestions = useCallback(async (status: string) => {
+    const secret = getSecret();
+    const params = new URLSearchParams({ status });
+    const res = await fetch(`/api/admin/suggestions?${params}`, { headers: { Authorization: `Bearer ${secret}` } });
+    if (res.ok) { const data = await res.json(); setSuggestions(data.suggestions ?? []); }
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'suggestions') loadSuggestions(suggFilter);
+  }, [tab, suggFilter, loadSuggestions]);
+
+  async function updateSuggestion(id: string, status: string, adminNote?: string) {
+    const secret = getSecret();
+    setActionError('');
+    const res = await fetch(`/api/admin/suggestions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
+      body: JSON.stringify({ status, ...(adminNote ? { adminNote } : {}) }),
+    });
+    const data = await res.json();
+    if (!res.ok) { setActionError(data.error ?? 'Failed'); return; }
+    await loadSuggestions(suggFilter);
+    if (status === 'forwarded') { setForwardModal(null); setForwardNote(''); }
+  }
+
   function signOut() { sessionStorage.removeItem('admin_secret'); router.replace('/admin'); }
 
   if (loading) return (
@@ -273,11 +341,13 @@ export default function AdminDashboard() {
       <div className="max-w-5xl mx-auto px-4 py-8">
         {error && <div className="bg-red-50 border border-red-100 text-red-700 rounded-xl px-4 py-3 text-sm mb-6">{error}</div>}
 
-        <div className="flex items-center gap-1 mb-6 bg-white border border-gray-100 rounded-xl p-1 shadow-sm w-fit">
+        <div className="flex items-center gap-1 mb-6 bg-white border border-gray-100 rounded-xl p-1 shadow-sm w-fit flex-wrap">
           {([
-            { key: 'platforms',   label: 'Platforms',   count: platforms.length },
-            { key: 'authorities', label: 'Authorities', count: authoritiesData.length },
-          ] as { key: Tab; label: string; count: number }[]).map(t => (
+            { key: 'overview',     label: 'Overview',     count: Number(stats?.summary?.active_incidents ?? 0), countLabel: 'active' },
+            { key: 'suggestions',  label: 'Suggestions',  count: stats?.pendingSuggestions ?? 0, countLabel: 'pending' },
+            { key: 'platforms',    label: 'Platforms',    count: platforms.length, countLabel: undefined },
+            { key: 'authorities',  label: 'Authorities',  count: authoritiesData.length, countLabel: undefined },
+          ] as { key: Tab; label: string; count: number; countLabel?: string }[]).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${
                 tab === t.key ? 'bg-brand text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'
@@ -289,6 +359,157 @@ export default function AdminDashboard() {
             </button>
           ))}
         </div>
+
+        {/* Overview tab */}
+        {tab === 'overview' && stats && (
+          <section className="space-y-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Platforms',        value: stats.summary.total_platforms },
+                { label: 'Active incidents',  value: stats.summary.active_incidents },
+                { label: 'Reports this week', value: stats.summary.reports_this_week },
+                { label: 'Resolved this week',value: stats.summary.resolved_this_week },
+              ].map(c => (
+                <div key={c.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
+                  <p className="text-2xl font-bold text-gray-900">{c.value}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{c.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {stats.slaBreaches.length > 0 && (
+              <div className="bg-red-50 border border-red-100 rounded-2xl p-4">
+                <p className="text-sm font-bold text-red-700 mb-3">SLA Breaches ({stats.slaBreaches.length})</p>
+                <div className="space-y-2">
+                  {stats.slaBreaches.map(b => (
+                    <div key={b.id} className="flex items-center justify-between text-sm">
+                      <span className="font-semibold text-gray-800">{b.platform_name}</span>
+                      <span className="text-xs text-red-600 font-semibold capitalize">{b.breach_type} · {b.hours_open}h open</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-100">
+                <p className="text-sm font-bold text-gray-700">Active Incidents</p>
+              </div>
+              {stats.activeIncidents.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-10">No active incidents</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-gray-400 font-semibold uppercase tracking-wide border-b border-gray-100">
+                      <th className="text-left px-5 py-3">Platform</th>
+                      <th className="text-left px-4 py-3 hidden sm:table-cell">Authority</th>
+                      <th className="text-left px-4 py-3">State</th>
+                      <th className="text-right px-5 py-3">Open for</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {stats.activeIncidents.map(i => (
+                      <tr key={i.id} className="hover:bg-gray-50/60">
+                        <td className="px-5 py-3 font-semibold text-gray-900">{i.platform_name}</td>
+                        <td className="px-4 py-3 hidden sm:table-cell text-gray-500 text-xs">{i.authority_name}</td>
+                        <td className="px-4 py-3">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                            i.state === 'detected'   ? 'bg-yellow-100 text-yellow-700' :
+                            i.state === 'confirmed'  ? 'bg-orange-100 text-orange-700' :
+                            i.state === 'recurred'   ? 'bg-red-100 text-red-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>{i.state}</span>
+                        </td>
+                        <td className="px-5 py-3 text-right text-xs text-gray-400">{i.hours_open}h</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Suggestions tab */}
+        {tab === 'suggestions' && (
+          <section className="space-y-4">
+            <div className="flex items-center gap-2">
+              {(['pending','public','forwarded','dismissed'] as const).map(s => (
+                <button key={s} onClick={() => setSuggFilter(s)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors ${
+                    suggFilter === s ? 'bg-brand text-white' : 'bg-white border border-gray-200 text-gray-500 hover:text-gray-800'
+                  }`}>{s}</button>
+              ))}
+            </div>
+            {actionError && <p className="text-xs text-red-600">{actionError}</p>}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              {suggestions.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-10">No {suggFilter} suggestions</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-gray-400 font-semibold uppercase tracking-wide border-b border-gray-100">
+                      <th className="text-left px-5 py-3">Suggestion</th>
+                      <th className="text-left px-4 py-3 hidden sm:table-cell">Platform</th>
+                      <th className="text-right px-4 py-3">Votes</th>
+                      <th className="px-5 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {suggestions.map(s => (
+                      <tr key={s.id} className="hover:bg-gray-50/60 align-top">
+                        <td className="px-5 py-3 max-w-xs">
+                          <p className="font-semibold text-gray-900 truncate">{s.title}</p>
+                          <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{s.body}</p>
+                          <span className="inline-block mt-1 text-xs text-gray-400 capitalize bg-gray-100 px-2 py-0.5 rounded-full">{s.category}</span>
+                        </td>
+                        <td className="px-4 py-3 hidden sm:table-cell text-xs text-gray-500">{s.platform_name}</td>
+                        <td className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{s.upvotes}</td>
+                        <td className="px-5 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {s.status === 'pending' && (
+                              <>
+                                <button onClick={() => updateSuggestion(s.id, 'public')}
+                                  className="text-xs px-3 py-1 rounded-lg bg-green-50 text-green-700 border border-green-100 hover:bg-green-100 font-semibold transition-colors">
+                                  Approve
+                                </button>
+                                <button onClick={() => updateSuggestion(s.id, 'dismissed')}
+                                  className="text-xs px-3 py-1 rounded-lg bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100 font-semibold transition-colors">
+                                  Dismiss
+                                </button>
+                              </>
+                            )}
+                            {s.status === 'public' && (
+                              <>
+                                <button onClick={() => { setForwardModal({ id: s.id, title: s.title }); setForwardNote(''); setActionError(''); }}
+                                  className="text-xs px-3 py-1 rounded-lg bg-brand/10 text-brand border border-brand/20 hover:bg-brand/20 font-semibold transition-colors">
+                                  Forward
+                                </button>
+                                <button onClick={() => updateSuggestion(s.id, 'dismissed')}
+                                  className="text-xs px-3 py-1 rounded-lg bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100 font-semibold transition-colors">
+                                  Dismiss
+                                </button>
+                              </>
+                            )}
+                            {s.status === 'dismissed' && (
+                              <button onClick={() => updateSuggestion(s.id, 'public')}
+                                className="text-xs px-3 py-1 rounded-lg bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100 font-semibold transition-colors">
+                                Restore
+                              </button>
+                            )}
+                            {(s.status === 'forwarded' || s.status === 'acknowledged' || s.status === 'planned' || s.status === 'declined') && (
+                              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 capitalize">{s.status}</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Platforms tab */}
         {tab === 'platforms' && (
@@ -407,6 +628,39 @@ export default function AdminDashboard() {
           </section>
         )}
       </div>
+
+      {/* Forward suggestion modal */}
+      {forwardModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-gray-900">Forward to operator</h3>
+              <button onClick={() => setForwardModal(null)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4 line-clamp-2">{forwardModal.title}</p>
+            <Field label="Note to operator (optional)">
+              <textarea value={forwardNote} onChange={e => setForwardNote(e.target.value)}
+                rows={3} placeholder="Context or priority guidance…"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition resize-none" />
+            </Field>
+            {actionError && <p className="text-xs text-red-600 mt-2">{actionError}</p>}
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => setForwardModal(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                Cancel
+              </button>
+              <button onClick={() => updateSuggestion(forwardModal.id, 'forwarded', forwardNote || undefined)}
+                className="flex-1 py-2.5 bg-brand hover:bg-brand-dark text-white font-bold rounded-xl text-sm transition-colors">
+                Forward
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {modal && (
