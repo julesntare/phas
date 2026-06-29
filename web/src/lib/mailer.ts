@@ -113,6 +113,79 @@ export async function sendIncidentAlert(opts: {
   await send(opts.to, subject, html);
 }
 
+export async function sendSuggestionForwarded(opts: {
+  to: string[];
+  platformName: string;
+  suggestionTitle: string;
+  suggestionBody: string;
+  category: string;
+  adminNote: string | null;
+  suggestionId: string;
+}): Promise<void> {
+  if (opts.to.length === 0) return;
+
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://phas.rw';
+  const dashboardUrl = `${baseUrl}/operator/dashboard`;
+
+  const subject = `[PHAS] 💡 Citizen suggestion forwarded — ${opts.platformName}`;
+
+  const categoryLabel: Record<string, string> = {
+    improvement: 'Improvement',
+    feature:     'New feature',
+    other:       'Other',
+  };
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+    <tr><td align="center" style="padding:40px 16px">
+      <table width="560" cellpadding="0" cellspacing="0" role="presentation" style="background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden">
+        <tr><td style="background:linear-gradient(135deg,#1A6ED8 0%,#003A7A 100%);padding:24px 32px">
+          <p style="margin:0;font-size:18px;font-weight:800;color:#fff;letter-spacing:-0.3px">PHAS</p>
+          <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.65)">Platform Health Accountability System</p>
+        </td></tr>
+        <tr><td style="padding:32px">
+          <p style="margin:0 0 8px;font-size:14px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">
+            Citizen Suggestion
+          </p>
+          <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#111827">${opts.suggestionTitle}</h1>
+          <p style="margin:0 0 24px;font-size:12px;color:#6b7280">
+            Platform: <strong style="color:#374151">${opts.platformName}</strong>
+            &nbsp;·&nbsp;
+            Category: <strong style="color:#374151">${categoryLabel[opts.category] ?? opts.category}</strong>
+          </p>
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px 20px;margin-bottom:24px">
+            <p style="margin:0;font-size:14px;color:#374151;line-height:1.65">${opts.suggestionBody.replace(/\n/g, '<br>')}</p>
+          </div>
+          ${opts.adminNote ? `
+          <div style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:8px;padding:14px 18px;margin-bottom:24px">
+            <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:0.5px">Admin note</p>
+            <p style="margin:0;font-size:13px;color:#4c1d95;line-height:1.5">${opts.adminNote}</p>
+          </div>` : ''}
+          <p style="margin:0 0 20px;font-size:14px;color:#374151;line-height:1.6">
+            A citizen has submitted this idea for your platform. Please review it in your dashboard and respond with a status update.
+          </p>
+          <a href="${dashboardUrl}" style="display:inline-block;background:#0055A4;color:#fff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:8px">
+            Review in dashboard →
+          </a>
+        </td></tr>
+        <tr><td style="padding:16px 32px;border-top:1px solid #f3f4f6">
+          <p style="margin:0;font-size:11px;color:#9ca3af">
+            This suggestion was reviewed and forwarded to you by the PHAS admin team.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`.trim();
+
+  await send(opts.to, subject, html);
+}
+
 export async function sendWeeklyReport(opts: {
   to: string[];
   range: string;
