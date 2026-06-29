@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import sql from '@/lib/db';
 import LocalDate from '@/components/LocalDate';
 import CoSignButton from './CoSignButton';
+import SuggestionBox from '@/components/SuggestionBox';
 
 export const revalidate = 60;
 
@@ -193,6 +194,9 @@ export default async function PlatformHistoryPage({ params }: { params: Promise<
             </div>
           </section>
         )}
+
+        {/* Suggestion box */}
+        <SuggestionBox platformId={id} />
 
         {/* Incident history */}
         <section>

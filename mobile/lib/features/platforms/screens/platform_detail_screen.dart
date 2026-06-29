@@ -41,6 +41,23 @@ class _PlatformDetailScreenState
     }
   }
 
+  Future<void> _openSuggestionSheet() async {
+    final submitted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => _SuggestionSheet(platformId: widget.platform.id),
+    );
+    if (submitted == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Suggestion submitted — thank you!')),
+      );
+    }
+  }
+
   Future<void> _openAffectedSheet() async {
     final result = await showModalBottomSheet<Map<String, dynamic>?>(
       context: context,
@@ -232,6 +249,16 @@ class _PlatformDetailScreenState
                         style: TextStyle(
                             color: cs.onSurfaceVariant, fontSize: 13)),
                   ],
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: _openSuggestionSheet,
+                    icon: const Icon(Icons.lightbulb_outline, size: 16),
+                    label: const Text('Suggest an improvement'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: cs.onSurfaceVariant,
+                      textStyle: const TextStyle(fontSize: 13),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -879,6 +906,131 @@ class _StatusCircle extends StatelessWidget {
             : Icons.check_circle_rounded,
         color: color,
         size: 32,
+      ),
+    );
+  }
+}
+
+// ── Bottom sheet for suggestions ─────────────────────────────────────────────
+
+class _SuggestionSheet extends ConsumerStatefulWidget {
+  final String platformId;
+  const _SuggestionSheet({required this.platformId});
+
+  @override
+  ConsumerState<_SuggestionSheet> createState() => _SuggestionSheetState();
+}
+
+class _SuggestionSheetState extends ConsumerState<_SuggestionSheet> {
+  final _titleCtrl = TextEditingController();
+  final _bodyCtrl  = TextEditingController();
+  String _category  = 'improvement';
+  bool   _submitting = false;
+  String? _error;
+
+  static const _categories = [
+    ('improvement', 'Improvement'),
+    ('feature',     'New feature'),
+    ('other',       'Other'),
+  ];
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _bodyCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final title = _titleCtrl.text.trim();
+    final body  = _bodyCtrl.text.trim();
+    if (title.isEmpty) { setState(() => _error = 'Title is required'); return; }
+    if (body.isEmpty)  { setState(() => _error = 'Description is required'); return; }
+
+    setState(() { _submitting = true; _error = null; });
+    try {
+      await ref.read(apiClientProvider).post('/api/suggestions', {
+        'platformId': widget.platformId,
+        'title': title,
+        'body': body,
+        'category': _category,
+      });
+      if (mounted) Navigator.of(context).pop(true);
+    } on ApiException catch (e) {
+      setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Suggest an improvement',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Category chips
+            Wrap(
+              spacing: 8,
+              children: _categories.map((c) {
+                final selected = _category == c.$1;
+                return ChoiceChip(
+                  label: Text(c.$2),
+                  selected: selected,
+                  onSelected: (_) => setState(() => _category = c.$1),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _titleCtrl,
+              maxLength: 120,
+              decoration: const InputDecoration(
+                labelText: 'Title *',
+                hintText: 'e.g. "Add biometric login support"',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _bodyCtrl,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Description *',
+                hintText: 'Describe the problem or improvement you\'d like to see…',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+            ],
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _submitting ? null : _submit,
+              child: _submitting
+                  ? const DotsLoader(color: Colors.white, dotSize: 6)
+                  : const Text('Submit suggestion'),
+            ),
+          ],
+        ),
       ),
     );
   }
