@@ -4,6 +4,7 @@ import sql from '@/lib/db';
 import LocalDate from '@/components/LocalDate';
 import CoSignButton from './CoSignButton';
 import SuggestionBox from '@/components/SuggestionBox';
+import PublicSuggestions from '@/components/PublicSuggestions';
 
 export const revalidate = 60;
 
@@ -194,6 +195,9 @@ export default async function PlatformHistoryPage({ params }: { params: Promise<
             </div>
           </section>
         )}
+
+        {/* Public suggestions */}
+        <PublicSuggestions platformId={id} />
 
         {/* Suggestion box */}
         <SuggestionBox platformId={id} />

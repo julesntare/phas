@@ -15,6 +15,29 @@ interface ReportRow {
   is_anonymous: boolean;
 }
 
+interface SuggestionRow {
+  id: string;
+  platform_name: string;
+  title: string;
+  body: string;
+  category: string;
+  status: string;
+  upvotes: number;
+  admin_note: string | null;
+  operator_note: string | null;
+  created_at: string;
+}
+
+const STATUS_META: Record<string, { label: string; cls: string }> = {
+  pending:      { label: 'Under review',  cls: 'bg-amber-50 text-amber-700 border-amber-200'   },
+  public:       { label: 'Public',        cls: 'bg-blue-50 text-blue-700 border-blue-200'       },
+  dismissed:    { label: 'Dismissed',     cls: 'bg-gray-100 text-gray-500 border-gray-200'      },
+  forwarded:    { label: 'Forwarded',     cls: 'bg-violet-50 text-violet-700 border-violet-200' },
+  acknowledged: { label: 'Acknowledged', cls: 'bg-teal-50 text-teal-700 border-teal-200'       },
+  planned:      { label: 'Planned',       cls: 'bg-green-50 text-green-700 border-green-200'    },
+  declined:     { label: 'Declined',      cls: 'bg-red-50 text-red-600 border-red-200'          },
+};
+
 export default async function CitizenProfilePage() {
   const session = await auth();
   if (!session?.user) redirect('/status');
@@ -36,16 +59,28 @@ export default async function CitizenProfilePage() {
       `.catch(() => [undefined])
     : [undefined];
 
-  const reports: ReportRow[] = citizenId
-    ? await sql<ReportRow[]>`
-        SELECT p.name AS platform_name, r.type, r.created_at, r.is_anonymous
-        FROM reports r
-        JOIN platforms p ON p.id = r.platform_id
-        WHERE r.reporter_id = ${citizenId}
-        ORDER BY r.created_at DESC
-        LIMIT 30
-      `.catch(() => [])
-    : [];
+  const [reports, suggestions]: [ReportRow[], SuggestionRow[]] = await Promise.all([
+    citizenId
+      ? sql<ReportRow[]>`
+          SELECT p.name AS platform_name, r.type, r.created_at, r.is_anonymous
+          FROM reports r
+          JOIN platforms p ON p.id = r.platform_id
+          WHERE r.reporter_id = ${citizenId}
+          ORDER BY r.created_at DESC
+          LIMIT 30
+        `.catch(() => [])
+      : Promise.resolve([]),
+    citizenId
+      ? sql<SuggestionRow[]>`
+          SELECT s.id, p.name AS platform_name, s.title, s.body, s.category,
+                 s.status, s.upvotes, s.admin_note, s.operator_note, s.created_at
+          FROM suggestions s
+          JOIN platforms p ON p.id = s.platform_id
+          WHERE s.reporter_id = ${citizenId}
+          ORDER BY s.created_at DESC
+        `.catch(() => [])
+      : Promise.resolve([]),
+  ]);
 
   const name   = citizen?.name ?? session.user.name ?? 'Citizen';
   const email  = citizen?.email ?? session.user.email ?? '';
@@ -106,10 +141,10 @@ export default async function CitizenProfilePage() {
               <p className="text-xs text-gray-400 mt-0.5">Issues reported</p>
             </div>
             <div className="text-center">
-              <p className="text-xl font-extrabold text-green-600">
-                {reports.filter(r => r.type === 'ok').length}
+              <p className="text-xl font-extrabold text-brand">
+                {suggestions.length}
               </p>
-              <p className="text-xs text-gray-400 mt-0.5">Confirmations</p>
+              <p className="text-xs text-gray-400 mt-0.5">Suggestions</p>
             </div>
             <SignOutButton />
           </div>
@@ -153,7 +188,70 @@ export default async function CitizenProfilePage() {
             </div>
           )}
         </div>
+        {/* My suggestions */}
+        <div>
+          <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3 px-1">
+            My suggestions
+          </h2>
+          {suggestions.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
+              <p className="text-2xl mb-2">💡</p>
+              <p className="font-semibold text-gray-700 text-sm">No suggestions yet</p>
+              <p className="text-xs text-gray-400 mt-1">Your suggestions will appear here after you submit them.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {suggestions.map(s => (
+                <SuggestionCard key={s.id} s={s} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+function SuggestionCard({ s }: { s: SuggestionRow }) {
+  const meta = STATUS_META[s.status] ?? { label: s.status, cls: 'bg-gray-100 text-gray-500 border-gray-200' };
+  return (
+    <details className="group bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <summary className="px-4 py-3 flex items-start gap-3 cursor-pointer list-none hover:bg-gray-50/60 transition-colors">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border shrink-0 ${meta.cls}`}>
+              {meta.label}
+            </span>
+            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full capitalize">{s.category}</span>
+            {s.upvotes > 0 && (
+              <span className="text-xs text-gray-400">↑ {s.upvotes}</span>
+            )}
+          </div>
+          <p className="text-sm font-semibold text-gray-900 mt-1 truncate">{s.title}</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {s.platform_name} ·{' '}
+            <LocalDate date={s.created_at} options={{ month: 'short', day: 'numeric', year: 'numeric' }} />
+          </p>
+        </div>
+        <svg className="w-4 h-4 text-gray-300 shrink-0 mt-1 group-open:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </summary>
+      <div className="px-4 pb-4 pt-2 border-t border-gray-50 space-y-3">
+        <p className="text-sm text-gray-700 leading-relaxed">{s.body}</p>
+        {s.admin_note && (
+          <div className="bg-violet-50 border border-violet-100 rounded-lg px-3 py-2.5">
+            <p className="text-xs font-semibold text-violet-600 mb-0.5">Admin note</p>
+            <p className="text-sm text-violet-800">{s.admin_note}</p>
+          </div>
+        )}
+        {s.operator_note && (
+          <div className="bg-teal-50 border border-teal-100 rounded-lg px-3 py-2.5">
+            <p className="text-xs font-semibold text-teal-600 mb-0.5">Operator response</p>
+            <p className="text-sm text-teal-800">{s.operator_note}</p>
+          </div>
+        )}
+      </div>
+    </details>
   );
 }

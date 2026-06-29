@@ -11,6 +11,7 @@ import '../../../models/rwanda_locations.dart';
 import '../../auth/auth_provider.dart';
 import '../../incidents/incident_provider.dart';
 import '../../report/widgets/location_picker_widget.dart';
+import '../platforms_provider.dart';
 
 class PlatformDetailScreen extends ConsumerStatefulWidget {
   final Platform platform;
@@ -265,6 +266,9 @@ class _PlatformDetailScreenState
 
             // ── Citizen reports ────────────────────────────────────────
             _ReportsSection(platformId: p.id),
+
+            // ── Community suggestions ──────────────────────────────────
+            _PublicSuggestionsSection(platformId: p.id),
 
             // ── Incident history ───────────────────────────────────────
             Padding(
@@ -909,6 +913,212 @@ class _StatusCircle extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Community (public) suggestions ───────────────────────────────────────────
+
+class _PublicSuggestionsSection extends ConsumerStatefulWidget {
+  final String platformId;
+  const _PublicSuggestionsSection({required this.platformId});
+
+  @override
+  ConsumerState<_PublicSuggestionsSection> createState() =>
+      _PublicSuggestionsSectionState();
+}
+
+class _PublicSuggestionsSectionState
+    extends ConsumerState<_PublicSuggestionsSection> {
+  String? _votingId;
+  // Local override map for optimistic upvote display.
+  final Map<String, ({int upvotes, bool hasUpvoted})> _local = {};
+
+  Future<void> _toggleVote(PublicSuggestion s) async {
+    if (_votingId != null) return;
+    setState(() => _votingId = s.id);
+    final wasUpvoted = (_local[s.id]?.hasUpvoted ?? s.hasUpvoted);
+    setState(() {
+      _local[s.id] = (
+        upvotes: (_local[s.id]?.upvotes ?? s.upvotes) + (wasUpvoted ? -1 : 1),
+        hasUpvoted: !wasUpvoted,
+      );
+    });
+    try {
+      final method = wasUpvoted ? 'DELETE' : 'POST';
+      if (method == 'POST') {
+        await ref.read(apiClientProvider).post('/api/suggestions/${s.id}/upvote', {});
+      } else {
+        await ref.read(apiClientProvider).delete('/api/suggestions/${s.id}/upvote');
+      }
+    } on ApiException {
+      // Roll back on error.
+      setState(() {
+        _local[s.id] = (
+          upvotes: (_local[s.id]?.upvotes ?? s.upvotes) + (wasUpvoted ? 1 : -1),
+          hasUpvoted: wasUpvoted,
+        );
+      });
+    } finally {
+      if (mounted) setState(() => _votingId = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(platformSuggestionsProvider(widget.platformId));
+    return async.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (suggestions) {
+        if (suggestions.isEmpty) return const SizedBox.shrink();
+        final cs = Theme.of(context).colorScheme;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Divider(),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Community suggestions',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Text(
+                    '${suggestions.length} idea${suggestions.length != 1 ? 's' : ''}',
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ...suggestions.map((s) {
+                final ov = _local[s.id];
+                final upvotes = ov?.upvotes ?? s.upvotes;
+                final hasUpvoted = ov?.hasUpvoted ?? s.hasUpvoted;
+                final isVoting = _votingId == s.id;
+                final (statusLabel, statusColor) = _suggestionStatus(s.status);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Upvote button
+                        GestureDetector(
+                          onTap: isVoting ? null : () => _toggleVote(s),
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 12, top: 2),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  hasUpvoted
+                                      ? Icons.arrow_upward_rounded
+                                      : Icons.arrow_upward_outlined,
+                                  size: 18,
+                                  color: hasUpvoted
+                                      ? const Color(0xFF0055A4)
+                                      : cs.onSurfaceVariant,
+                                ),
+                                Text(
+                                  '$upvotes',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: hasUpvoted
+                                        ? const Color(0xFF0055A4)
+                                        : cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Content
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: statusColor.withAlpha(20),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                          color: statusColor.withAlpha(70)),
+                                    ),
+                                    child: Text(
+                                      statusLabel,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: statusColor,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    s.category,
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: cs.onSurfaceVariant),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                s.title,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: cs.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                s.body,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: cs.onSurfaceVariant,
+                                    height: 1.4),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  static (String, Color) _suggestionStatus(String status) => switch (status) {
+        'public'       => ('Community idea',   const Color(0xFF3B82F6)),
+        'forwarded'    => ('Sent to operator', const Color(0xFF8B5CF6)),
+        'acknowledged' => ('Being considered', const Color(0xFF0D9488)),
+        'planned'      => ('In roadmap',       const Color(0xFF16A34A)),
+        'declined'     => ('Not planned',      const Color(0xFF6B7280)),
+        _              => (status,             const Color(0xFF6B7280)),
+      };
 }
 
 // ── Bottom sheet for suggestions ─────────────────────────────────────────────

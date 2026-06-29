@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
 import '../../models/rwanda_locations.dart';
@@ -371,6 +372,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ], // end location section (phone only)
 
               const Divider(),
+
+              // ── Section: Activity ──────────────────────────────────────
+              const _SectionHeader(title: 'Activity'),
+              _NavTile(
+                icon: Icons.lightbulb_outline,
+                label: 'My suggestions',
+                subtitle: 'Track your submitted ideas',
+                onTap: () => context.push('/my-suggestions'),
+              ),
+
+              const Divider(),
               const SizedBox(height: 8),
 
               // ── Sign out ───────────────────────────────────────────────
@@ -501,6 +513,63 @@ class _SettingsTile extends StatelessWidget {
             ),
             if (onTap != null)
               Icon(Icons.chevron_right, size: 18, color: cs.outlineVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _NavTile({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        color: cs.surface,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon, size: 18, color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface)),
+                  const SizedBox(height: 1),
+                  Text(subtitle,
+                      style: TextStyle(
+                          fontSize: 12, color: cs.onSurfaceVariant)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, size: 18, color: cs.outlineVariant),
           ],
         ),
       ),

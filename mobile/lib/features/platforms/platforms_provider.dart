@@ -5,6 +5,53 @@ import '../auth/auth_provider.dart';
 
 export '../../core/api_client.dart' show UnauthenticatedException;
 
+// ── Public suggestions for a platform ────────────────────────────────────────
+
+class PublicSuggestion {
+  final String id;
+  final String title;
+  final String body;
+  final String category;
+  final String status;
+  final int upvotes;
+  final bool hasUpvoted;
+
+  const PublicSuggestion({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.category,
+    required this.status,
+    required this.upvotes,
+    required this.hasUpvoted,
+  });
+
+  factory PublicSuggestion.fromJson(Map<String, dynamic> j) => PublicSuggestion(
+        id:         j['id'] as String,
+        title:      j['title'] as String,
+        body:       j['body'] as String,
+        category:   j['category'] as String,
+        status:     j['status'] as String,
+        upvotes:    (j['upvotes'] as num).toInt(),
+        hasUpvoted: j['has_upvoted'] as bool? ?? false,
+      );
+
+  PublicSuggestion copyWith({int? upvotes, bool? hasUpvoted}) => PublicSuggestion(
+        id: id, title: title, body: body,
+        category: category, status: status,
+        upvotes: upvotes ?? this.upvotes,
+        hasUpvoted: hasUpvoted ?? this.hasUpvoted,
+      );
+}
+
+final platformSuggestionsProvider =
+    FutureProvider.autoDispose.family<List<PublicSuggestion>, String>((ref, platformId) async {
+  final data = await ref.read(apiClientProvider).get('/api/suggestions?platform_id=$platformId');
+  return (data['suggestions'] as List)
+      .map((s) => PublicSuggestion.fromJson(s as Map<String, dynamic>))
+      .toList();
+});
+
 final platformsProvider = FutureProvider<List<Platform>>((ref) async {
   final api = ref.read(apiClientProvider);
   final res = await api.get('/api/platforms');

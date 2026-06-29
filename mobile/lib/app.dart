@@ -11,6 +11,7 @@ import 'features/notifications/notification_history_screen.dart';
 import 'features/platforms/screens/platform_detail_screen.dart';
 import 'features/platforms/screens/platforms_screen.dart';
 import 'features/profile/profile_screen.dart';
+import 'features/suggestions/my_suggestions_screen.dart';
 import 'models/platform.dart';
 
 // Top-level so NotificationService can push routes into it.
@@ -47,6 +48,10 @@ final appRouter = GoRouter(
       },
     ),
     GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
+    GoRoute(
+      path: '/my-suggestions',
+      builder: (_, _) => const MySuggestionsScreen(),
+    ),
     GoRoute(
       path: '/notifications',
       builder: (_, _) => const NotificationHistoryScreen(),
