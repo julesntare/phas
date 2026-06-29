@@ -45,19 +45,27 @@ export async function GET(req: NextRequest) {
     status: string;
     upvotes: number;
     created_at: Date;
-    has_upvoted: boolean;
+    user_vote: string | null;
+    user_comment: string | null;
   }[]>`
     SELECT
       s.id, s.title, s.body, s.category, s.status, s.upvotes, s.created_at,
-      EXISTS (
-        SELECT 1 FROM suggestion_upvotes u
-        WHERE u.suggestion_id = s.id
-          AND (
-            (${citizenId}::uuid IS NOT NULL AND u.reporter_id = ${citizenId}::uuid)
-            OR
-            (${userId}::uuid IS NOT NULL AND u.user_id = ${userId}::uuid)
-          )
-      ) AS has_upvoted
+      (SELECT u.vote_type FROM suggestion_upvotes u
+       WHERE u.suggestion_id = s.id
+         AND (
+           (${citizenId}::uuid IS NOT NULL AND u.reporter_id = ${citizenId}::uuid)
+           OR
+           (${userId}::uuid IS NOT NULL AND u.user_id = ${userId}::uuid)
+         )
+       LIMIT 1) AS user_vote,
+      (SELECT u.comment FROM suggestion_upvotes u
+       WHERE u.suggestion_id = s.id
+         AND (
+           (${citizenId}::uuid IS NOT NULL AND u.reporter_id = ${citizenId}::uuid)
+           OR
+           (${userId}::uuid IS NOT NULL AND u.user_id = ${userId}::uuid)
+         )
+       LIMIT 1) AS user_comment
     FROM suggestions s
     WHERE s.platform_id = ${platformId}
       AND s.status = ANY(${PUBLIC_STATUSES}::text[])

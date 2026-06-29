@@ -928,38 +928,61 @@ class _PublicSuggestionsSection extends ConsumerStatefulWidget {
 
 class _PublicSuggestionsSectionState
     extends ConsumerState<_PublicSuggestionsSection> {
-  String? _votingId;
-  // Local override map for optimistic upvote display.
-  final Map<String, ({int upvotes, bool hasUpvoted})> _local = {};
+  // Optimistic local overrides: suggestionId → updated suggestion.
+  final Map<String, PublicSuggestion> _local = {};
 
-  Future<void> _toggleVote(PublicSuggestion s) async {
-    if (_votingId != null) return;
-    setState(() => _votingId = s.id);
-    final wasUpvoted = (_local[s.id]?.hasUpvoted ?? s.hasUpvoted);
-    setState(() {
-      _local[s.id] = (
-        upvotes: (_local[s.id]?.upvotes ?? s.upvotes) + (wasUpvoted ? -1 : 1),
-        hasUpvoted: !wasUpvoted,
-      );
-    });
-    try {
-      final method = wasUpvoted ? 'DELETE' : 'POST';
-      if (method == 'POST') {
-        await ref.read(apiClientProvider).post('/api/suggestions/${s.id}/upvote', {});
-      } else {
+  PublicSuggestion _effective(PublicSuggestion s) => _local[s.id] ?? s;
+
+  Future<void> _handleVoteTap(PublicSuggestion s, String voteType) async {
+    final eff = _effective(s);
+
+    // Tapping the active vote type → remove vote immediately.
+    if (eff.userVote == voteType) {
+      _applyLocal(s, eff.copyWith(
+        upvotes: eff.upvotes + (voteType == 'up' ? -1 : 1),
+        clearVote: true,
+      ));
+      try {
         await ref.read(apiClientProvider).delete('/api/suggestions/${s.id}/upvote');
+      } on ApiException {
+        _local.remove(s.id); // roll back
+        if (mounted) setState(() {});
       }
-    } on ApiException {
-      // Roll back on error.
-      setState(() {
-        _local[s.id] = (
-          upvotes: (_local[s.id]?.upvotes ?? s.upvotes) + (wasUpvoted ? 1 : -1),
-          hasUpvoted: wasUpvoted,
-        );
-      });
-    } finally {
-      if (mounted) setState(() => _votingId = null);
+      return;
     }
+
+    // Otherwise open dialog with optional comment.
+    if (!mounted) return;
+    final result = await showDialog<({String voteType, String comment})>(
+      context: context,
+      builder: (_) => _VoteDialog(
+        initialVote: voteType,
+        initialComment: eff.userVote != null ? (eff.userComment ?? '') : '',
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    final oldVal = eff.userVote == 'up' ? 1 : eff.userVote == 'down' ? -1 : 0;
+    final newVal = result.voteType == 'up' ? 1 : -1;
+    _applyLocal(s, eff.copyWith(
+      upvotes:     eff.upvotes + newVal - oldVal,
+      userVote:    result.voteType,
+      userComment: result.comment.isEmpty ? null : result.comment,
+    ));
+
+    try {
+      await ref.read(apiClientProvider).post('/api/suggestions/${s.id}/upvote', {
+        'voteType': result.voteType,
+        if (result.comment.isNotEmpty) 'comment': result.comment,
+      });
+    } on ApiException {
+      _local.remove(s.id); // roll back
+      if (mounted) setState(() {});
+    }
+  }
+
+  void _applyLocal(PublicSuggestion original, PublicSuggestion updated) {
+    setState(() => _local[original.id] = updated);
   }
 
   @override
@@ -967,10 +990,11 @@ class _PublicSuggestionsSectionState
     final async = ref.watch(platformSuggestionsProvider(widget.platformId));
     return async.when(
       loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
+      error:   (_, _) => const SizedBox.shrink(),
       data: (suggestions) {
         if (suggestions.isEmpty) return const SizedBox.shrink();
         final cs = Theme.of(context).colorScheme;
+
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Column(
@@ -996,118 +1020,170 @@ class _PublicSuggestionsSectionState
                 ],
               ),
               const SizedBox(height: 10),
-              ...suggestions.map((s) {
-                final ov = _local[s.id];
-                final upvotes = ov?.upvotes ?? s.upvotes;
-                final hasUpvoted = ov?.hasUpvoted ?? s.hasUpvoted;
-                final isVoting = _votingId == s.id;
-                final (statusLabel, statusColor) = _suggestionStatus(s.status);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Upvote button
-                        GestureDetector(
-                          onTap: isVoting ? null : () => _toggleVote(s),
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 12, top: 2),
-                            child: Column(
-                              children: [
-                                Icon(
-                                  hasUpvoted
-                                      ? Icons.arrow_upward_rounded
-                                      : Icons.arrow_upward_outlined,
-                                  size: 18,
-                                  color: hasUpvoted
-                                      ? const Color(0xFF0055A4)
-                                      : cs.onSurfaceVariant,
-                                ),
-                                Text(
-                                  '$upvotes',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: hasUpvoted
-                                        ? const Color(0xFF0055A4)
-                                        : cs.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        // Content
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 7, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: statusColor.withAlpha(20),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                          color: statusColor.withAlpha(70)),
-                                    ),
-                                    child: Text(
-                                      statusLabel,
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        color: statusColor,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    s.category,
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        color: cs.onSurfaceVariant),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 5),
-                              Text(
-                                s.title,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: cs.onSurface,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                s.body,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: cs.onSurfaceVariant,
-                                    height: 1.4),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
+              ...suggestions.map((s) => _SuggestionCard(
+                    suggestion: _effective(s),
+                    onVoteTap: (voteType) => _handleVoteTap(s, voteType),
+                    cs: cs,
+                  )),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _SuggestionCard extends StatelessWidget {
+  final PublicSuggestion suggestion;
+  final void Function(String voteType) onVoteTap;
+  final ColorScheme cs;
+
+  const _SuggestionCard({
+    required this.suggestion,
+    required this.onVoteTap,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final s = suggestion;
+    final (statusLabel, statusColor) = _suggestionStatus(s.status);
+    final score = s.upvotes;
+    final scoreColor = score > 0
+        ? const Color(0xFF0055A4)
+        : score < 0
+            ? const Color(0xFFEF4444)
+            : cs.onSurfaceVariant;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Vote column
+                Column(
+                  children: [
+                    _VoteBtn(
+                      icon: Icons.arrow_upward_rounded,
+                      active: s.userVote == 'up',
+                      activeColor: const Color(0xFF0055A4),
+                      onTap: () => onVoteTap('up'),
+                    ),
+                    Text(
+                      score > 0 ? '+$score' : '$score',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: scoreColor,
+                      ),
+                    ),
+                    _VoteBtn(
+                      icon: Icons.arrow_downward_rounded,
+                      active: s.userVote == 'down',
+                      activeColor: const Color(0xFFEF4444),
+                      onTap: () => onVoteTap('down'),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                // Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: statusColor.withAlpha(20),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: statusColor.withAlpha(70)),
+                            ),
+                            child: Text(
+                              statusLabel,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: statusColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            s.category,
+                            style: TextStyle(
+                                fontSize: 11, color: cs.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        s.title,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        s.body,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 12, color: cs.onSurfaceVariant, height: 1.4),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            // User's own comment
+            if (s.userVote != null && s.userComment != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.comment_outlined, size: 11, color: cs.onSurfaceVariant),
+                    const SizedBox(width: 5),
+                    Text(
+                      'Your note: ',
+                      style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                    ),
+                    Expanded(
+                      child: Text(
+                        s.userComment!,
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                            color: cs.onSurface),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -1119,6 +1195,185 @@ class _PublicSuggestionsSectionState
         'declined'     => ('Not planned',      const Color(0xFF6B7280)),
         _              => (status,             const Color(0xFF6B7280)),
       };
+}
+
+class _VoteBtn extends StatelessWidget {
+  final IconData icon;
+  final bool active;
+  final Color activeColor;
+  final VoidCallback onTap;
+
+  const _VoteBtn({
+    required this.icon,
+    required this.active,
+    required this.activeColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: active ? activeColor.withAlpha(20) : Colors.transparent,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          size: 16,
+          color: active ? activeColor : cs.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Vote dialog ───────────────────────────────────────────────────────────────
+
+class _VoteDialog extends StatefulWidget {
+  final String initialVote;
+  final String initialComment;
+  const _VoteDialog({required this.initialVote, required this.initialComment});
+
+  @override
+  State<_VoteDialog> createState() => _VoteDialogState();
+}
+
+class _VoteDialogState extends State<_VoteDialog> {
+  late String _voteType;
+  late TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _voteType = widget.initialVote;
+    _ctrl = TextEditingController(text: widget.initialComment);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text('Your vote',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Toggle row
+          Row(
+            children: [
+              Expanded(
+                child: _VoteToggleBtn(
+                  label: 'Upvote',
+                  icon: Icons.arrow_upward_rounded,
+                  selected: _voteType == 'up',
+                  selectedColor: const Color(0xFF0055A4),
+                  onTap: () => setState(() => _voteType = 'up'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _VoteToggleBtn(
+                  label: 'Downvote',
+                  icon: Icons.arrow_downward_rounded,
+                  selected: _voteType == 'down',
+                  selectedColor: const Color(0xFFEF4444),
+                  onTap: () => setState(() => _voteType = 'down'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _ctrl,
+            maxLines: 2,
+            maxLength: 200,
+            autofocus: false,
+            decoration: InputDecoration(
+              labelText: 'Add a note (optional)',
+              hintText: 'Why are you voting this way?',
+              border: const OutlineInputBorder(),
+              counterStyle: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, (
+            voteType: _voteType,
+            comment: _ctrl.text.trim(),
+          )),
+          child: const Text('Submit'),
+        ),
+      ],
+    );
+  }
+}
+
+class _VoteToggleBtn extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final Color selectedColor;
+  final VoidCallback onTap;
+
+  const _VoteToggleBtn({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.selectedColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? selectedColor.withAlpha(20) : cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? selectedColor.withAlpha(100) : cs.outlineVariant,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 20, color: selected ? selectedColor : cs.onSurfaceVariant),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? selectedColor : cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ── Bottom sheet for suggestions ─────────────────────────────────────────────

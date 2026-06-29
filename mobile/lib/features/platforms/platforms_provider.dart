@@ -14,7 +14,9 @@ class PublicSuggestion {
   final String category;
   final String status;
   final int upvotes;
-  final bool hasUpvoted;
+  // 'up', 'down', or null if the current user hasn't voted.
+  final String? userVote;
+  final String? userComment;
 
   const PublicSuggestion({
     required this.id,
@@ -23,24 +25,27 @@ class PublicSuggestion {
     required this.category,
     required this.status,
     required this.upvotes,
-    required this.hasUpvoted,
+    this.userVote,
+    this.userComment,
   });
 
   factory PublicSuggestion.fromJson(Map<String, dynamic> j) => PublicSuggestion(
-        id:         j['id'] as String,
-        title:      j['title'] as String,
-        body:       j['body'] as String,
-        category:   j['category'] as String,
-        status:     j['status'] as String,
-        upvotes:    (j['upvotes'] as num).toInt(),
-        hasUpvoted: j['has_upvoted'] as bool? ?? false,
+        id:          j['id'] as String,
+        title:       j['title'] as String,
+        body:        j['body'] as String,
+        category:    j['category'] as String,
+        status:      j['status'] as String,
+        upvotes:     (j['upvotes'] as num).toInt(),
+        userVote:    j['user_vote'] as String?,
+        userComment: j['user_comment'] as String?,
       );
 
-  PublicSuggestion copyWith({int? upvotes, bool? hasUpvoted}) => PublicSuggestion(
-        id: id, title: title, body: body,
-        category: category, status: status,
-        upvotes: upvotes ?? this.upvotes,
-        hasUpvoted: hasUpvoted ?? this.hasUpvoted,
+  PublicSuggestion copyWith({int? upvotes, String? userVote, String? userComment, bool clearVote = false}) =>
+      PublicSuggestion(
+        id: id, title: title, body: body, category: category, status: status,
+        upvotes:     upvotes     ?? this.upvotes,
+        userVote:    clearVote   ? null : (userVote    ?? this.userVote),
+        userComment: clearVote   ? null : (userComment ?? this.userComment),
       );
 }
 

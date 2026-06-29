@@ -30,45 +30,28 @@ async function resolveIdentity(req: NextRequest): Promise<
   return null;
 }
 
+const PUBLIC_STATUSES = ['public', 'forwarded', 'acknowledged', 'planned', 'declined'];
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const identity = await resolveIdentity(req);
   if (!identity) return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
 
   const { id } = await params;
+  const body = await req.json().catch(() => ({}));
+  const voteType: 'up' | 'down' = body?.voteType === 'down' ? 'down' : 'up';
+  const rawComment = typeof body?.comment === 'string' ? body.comment.trim() : '';
+  const comment = rawComment.length > 0 ? rawComment.slice(0, 200) : null;
 
   const [suggestion] = await sql<{ id: string; status: string }[]>`
     SELECT id, status FROM suggestions WHERE id = ${id}
   `;
   if (!suggestion) return NextResponse.json({ error: 'Suggestion not found' }, { status: 404 });
-  if (!['public', 'forwarded', 'acknowledged', 'planned', 'declined'].includes(suggestion.status)) {
+  if (!PUBLIC_STATUSES.includes(suggestion.status)) {
     return NextResponse.json({ error: 'Suggestion is not public' }, { status: 403 });
   }
 
-  try {
-    await sql`
-      INSERT INTO suggestion_upvotes (suggestion_id, reporter_id, user_id)
-      VALUES (${id}, ${identity.citizenId ?? null}, ${identity.userId ?? null})
-    `;
-    await sql`UPDATE suggestions SET upvotes = upvotes + 1, updated_at = NOW() WHERE id = ${id}`;
-  } catch (err: unknown) {
-    const pg = err as { code?: string };
-    if (pg.code === '23505') {
-      return NextResponse.json({ error: 'Already upvoted' }, { status: 409 });
-    }
-    throw err;
-  }
-
-  return NextResponse.json({ ok: true });
-}
-
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const identity = await resolveIdentity(req);
-  if (!identity) return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
-
-  const { id } = await params;
-
-  const result = await sql`
-    DELETE FROM suggestion_upvotes
+  const [existing] = await sql<{ vote_type: string }[]>`
+    SELECT vote_type FROM suggestion_upvotes
     WHERE suggestion_id = ${id}
       AND (
         (${identity.citizenId ?? null}::uuid IS NOT NULL AND reporter_id = ${identity.citizenId ?? null}::uuid)
@@ -77,9 +60,57 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       )
   `;
 
-  if (result.count === 0) return NextResponse.json({ error: 'Upvote not found' }, { status: 404 });
+  const newVal = voteType === 'up' ? 1 : -1;
+  const oldVal = existing ? (existing.vote_type === 'up' ? 1 : -1) : 0;
+  const delta  = newVal - oldVal;
 
-  await sql`UPDATE suggestions SET upvotes = GREATEST(upvotes - 1, 0), updated_at = NOW() WHERE id = ${id}`;
+  if (existing) {
+    await sql`
+      UPDATE suggestion_upvotes
+      SET vote_type = ${voteType}, comment = ${comment}
+      WHERE suggestion_id = ${id}
+        AND (
+          (${identity.citizenId ?? null}::uuid IS NOT NULL AND reporter_id = ${identity.citizenId ?? null}::uuid)
+          OR
+          (${identity.userId ?? null}::uuid IS NOT NULL AND user_id = ${identity.userId ?? null}::uuid)
+        )
+    `;
+  } else {
+    await sql`
+      INSERT INTO suggestion_upvotes (suggestion_id, reporter_id, user_id, vote_type, comment)
+      VALUES (${id}, ${identity.citizenId ?? null}, ${identity.userId ?? null}, ${voteType}, ${comment})
+    `;
+  }
+
+  if (delta !== 0) {
+    await sql`UPDATE suggestions SET upvotes = upvotes + ${delta}, updated_at = NOW() WHERE id = ${id}`;
+  }
+
+  const [updated] = await sql<{ upvotes: number }[]>`SELECT upvotes FROM suggestions WHERE id = ${id}`;
+  return NextResponse.json({ ok: true, upvotes: updated.upvotes });
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const identity = await resolveIdentity(req);
+  if (!identity) return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
+
+  const { id } = await params;
+
+  const [deleted] = await sql<{ vote_type: string }[]>`
+    DELETE FROM suggestion_upvotes
+    WHERE suggestion_id = ${id}
+      AND (
+        (${identity.citizenId ?? null}::uuid IS NOT NULL AND reporter_id = ${identity.citizenId ?? null}::uuid)
+        OR
+        (${identity.userId ?? null}::uuid IS NOT NULL AND user_id = ${identity.userId ?? null}::uuid)
+      )
+    RETURNING vote_type
+  `;
+
+  if (!deleted) return NextResponse.json({ error: 'Vote not found' }, { status: 404 });
+
+  const delta = deleted.vote_type === 'up' ? -1 : 1;
+  await sql`UPDATE suggestions SET upvotes = upvotes + ${delta}, updated_at = NOW() WHERE id = ${id}`;
 
   return NextResponse.json({ ok: true });
 }
