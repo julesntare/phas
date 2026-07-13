@@ -41,12 +41,12 @@ export async function GET(req: NextRequest) {
 
   const withUptime       = platforms.filter(p => p.uptime_7d != null);
   const avgUptime        = withUptime.length > 0
-    ? (withUptime.reduce((s, p) => s + (p.uptime_7d ?? 0), 0) / withUptime.length).toFixed(1)
+    ? (withUptime.reduce((s, p) => s + Number(p.uptime_7d), 0) / withUptime.length).toFixed(1)
     : null;
   const totalIncidents   = platforms.reduce((s, p) => s + Number(p.incidents_week), 0);
   const totalResolved    = platforms.reduce((s, p) => s + Number(p.resolved_week), 0);
   const totalReports     = platforms.reduce((s, p) => s + Number(p.reports_week), 0);
-  const perfectUptime    = platforms.filter(p => p.uptime_7d === 100).length;
+  const perfectUptime    = platforms.filter(p => Number(p.uptime_7d) === 100).length;
   const baseUrl          = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
 
   await sendWeeklyReport({
