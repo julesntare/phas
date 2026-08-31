@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/notification_history.dart';
+import 'notifications_provider.dart';
 
-class NotificationHistoryScreen extends StatefulWidget {
+class NotificationHistoryScreen extends ConsumerStatefulWidget {
   const NotificationHistoryScreen({super.key});
 
   @override
-  State<NotificationHistoryScreen> createState() => _NotificationHistoryScreenState();
+  ConsumerState<NotificationHistoryScreen> createState() => _NotificationHistoryScreenState();
 }
 
-class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
+class _NotificationHistoryScreenState extends ConsumerState<NotificationHistoryScreen> {
   List<NotificationEntry>? _entries;
 
   @override
@@ -21,6 +23,9 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
   Future<void> _load() async {
     final entries = await NotificationHistory.load();
     if (mounted) setState(() => _entries = entries);
+    // Opening the list counts as reading it — clear the app bar badge.
+    await NotificationHistory.markAllSeen();
+    if (mounted) ref.invalidate(unreadNotificationsProvider);
   }
 
   Future<void> _clearAll() async {

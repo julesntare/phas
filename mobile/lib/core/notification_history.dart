@@ -39,6 +39,7 @@ class NotificationEntry {
 
 class NotificationHistory {
   static const _key = 'notification_history';
+  static const _seenKey = 'notification_last_seen';
   static const _maxEntries = 50;
 
   static Future<List<NotificationEntry>> load() async {
@@ -75,5 +76,26 @@ class NotificationHistory {
   static Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);
+    await markAllSeen();
+  }
+
+  /// Timestamp of the last time the user opened the notification list.
+  static Future<DateTime?> lastSeenAt() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_seenKey);
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
+
+  static Future<void> markAllSeen() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_seenKey, DateTime.now().toIso8601String());
+  }
+
+  /// Entries that arrived after the last visit to the notification list.
+  static Future<int> unreadCount() async {
+    final seen = await lastSeenAt();
+    final entries = await load();
+    if (seen == null) return entries.length;
+    return entries.where((e) => e.receivedAt.isAfter(seen)).length;
   }
 }

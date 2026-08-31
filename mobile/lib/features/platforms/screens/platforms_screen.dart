@@ -2,9 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme.dart';
 import '../../../models/platform.dart';
 import '../../../widgets/loaders.dart';
+import '../../../widgets/user_avatar.dart';
+import '../../notifications/notifications_provider.dart';
+import '../../profile/account_sheet.dart';
+import '../../profile/profile_provider.dart';
 import '../platforms_provider.dart';
 
 // ── Category icon mapping ─────────────────────────────────────────────────────
@@ -59,6 +62,11 @@ class _PlatformsScreenState extends ConsumerState<PlatformsScreen> {
     super.dispose();
   }
 
+  Future<void> _refresh() {
+    ref.invalidate(followedPlatformsProvider);
+    return ref.refresh(platformsProvider.future);
+  }
+
   List<Platform> _filter(List<Platform> all) {
     // Issues bubble to top.
     final sorted = [...all]..sort((a, b) {
@@ -98,39 +106,11 @@ class _PlatformsScreenState extends ConsumerState<PlatformsScreen> {
             const Text('Platforms'),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none_outlined, size: 22),
-            onPressed: () => context.push('/notifications'),
-            tooltip: 'Notifications',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh_outlined, size: 22),
-            onPressed: () => ref.invalidate(platformsProvider),
-            tooltip: 'Refresh',
-          ),
-          Consumer(
-            builder: (context, ref, _) {
-              final mode = ref.watch(themeProvider);
-              final isDark = mode == ThemeMode.dark ||
-                  (mode == ThemeMode.system &&
-                      MediaQuery.platformBrightnessOf(context) == Brightness.dark);
-              return IconButton(
-                icon: Icon(
-                  isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                  size: 22,
-                ),
-                onPressed: () => ref.read(themeProvider.notifier).toggle(),
-                tooltip: isDark ? 'Light mode' : 'Dark mode',
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person_outline, size: 22),
-            onPressed: () => context.push('/profile'),
-            tooltip: 'Profile',
-          ),
-          const SizedBox(width: 4),
+        actions: const [
+          // Refresh moved to pull-to-refresh; theme lives in the account sheet.
+          _NotificationsButton(),
+          _AccountButton(),
+          SizedBox(width: 8),
         ],
       ),
       body: Column(
@@ -279,31 +259,107 @@ class _PlatformsScreenState extends ConsumerState<PlatformsScreen> {
           const Divider(),
           // ── List ────────────────────────────────────────────────────────
           Expanded(
-            child: platforms.when(
-              loading: () => ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: 7,
-                separatorBuilder: (_, i) => const Divider(indent: 72),
-                itemBuilder: (_, i) => const _SkeletonPlatformTile(),
-              ),
-              error: (e, _) => _ErrorState(error: '$e'),
-              data: (list) {
-                final filtered = _filter(list);
-                if (filtered.isEmpty) return _EmptyState(filtered: _query.isNotEmpty || _category != null || _issuesOnly);
-                return ListView.separated(
+            child: RefreshIndicator(
+              onRefresh: _refresh,
+              child: platforms.when(
+                loading: () => ListView.separated(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: filtered.length,
+                  itemCount: 7,
                   separatorBuilder: (_, i) => const Divider(indent: 72),
-                  itemBuilder: (context, i) =>
-                      _PlatformTile(platform: filtered[i]),
-                );
-              },
+                  itemBuilder: (_, i) => const _SkeletonPlatformTile(),
+                ),
+                error: (e, _) => _Pullable(child: _ErrorState(error: '$e')),
+                data: (list) {
+                  final filtered = _filter(list);
+                  if (filtered.isEmpty) {
+                    return _Pullable(
+                      child: _EmptyState(
+                          filtered: _query.isNotEmpty ||
+                              _category != null ||
+                              _issuesOnly),
+                    );
+                  }
+                  return ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, i) => const Divider(indent: 72),
+                    itemBuilder: (context, i) =>
+                        _PlatformTile(platform: filtered[i]),
+                  );
+                },
+              ),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+// ── App bar actions ───────────────────────────────────────────────────────────
+
+class _NotificationsButton extends ConsumerWidget {
+  const _NotificationsButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = ref.watch(unreadNotificationsProvider).value ?? 0;
+
+    return IconButton(
+      tooltip: unread > 0 ? '$unread new notifications' : 'Notifications',
+      onPressed: () async {
+        await context.push('/notifications');
+        ref.invalidate(unreadNotificationsProvider);
+      },
+      icon: Badge(
+        isLabelVisible: unread > 0,
+        label: Text(unread > 99 ? '99+' : '$unread'),
+        backgroundColor: const Color(0xFFEF4444),
+        child: Icon(
+          unread > 0
+              ? Icons.notifications_rounded
+              : Icons.notifications_none_outlined,
+          size: 22,
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountButton extends ConsumerWidget {
+  const _AccountButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(profileProvider).value;
+
+    return IconButton(
+      tooltip: 'Account',
+      onPressed: () => showAccountSheet(context),
+      icon: UserAvatar(user: user, size: 30),
+    );
+  }
+}
+
+// ── Pull-to-refresh wrapper ───────────────────────────────────────────────────
+
+/// Lets the empty and error states still respond to a pull gesture — a
+/// non-scrolling child would otherwise swallow it.
+class _Pullable extends StatelessWidget {
+  final Widget child;
+  const _Pullable({required this.child});
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: child,
+          ),
+        ),
+      );
 }
 
 // ── Filter chip ───────────────────────────────────────────────────────────────

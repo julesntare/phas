@@ -4,19 +4,17 @@ import 'package:go_router/go_router.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
 import '../../models/rwanda_locations.dart';
-import '../../models/user.dart';
 import '../../widgets/loaders.dart';
+import '../../widgets/user_avatar.dart';
 import '../auth/auth_provider.dart';
+import 'profile_provider.dart';
+
+export 'profile_provider.dart' show profileProvider;
 
 final _allDistricts = rwandaProvinceDistricts.values
     .expand((d) => d)
     .toList()
   ..sort();
-
-final profileProvider = FutureProvider.autoDispose<User>((ref) async {
-  final data = await ref.read(apiClientProvider).get('/api/profile');
-  return User.fromJson(data);
-});
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -177,19 +175,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
                 child: Row(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: user.avatarUrl != null
-                          ? Image.network(
-                              user.avatarUrl!,
-                              width: 64,
-                              height: 64,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stack) =>
-                                  _InitialAvatar(initial: displayName[0]),
-                            )
-                          : _InitialAvatar(initial: displayName[0]),
-                    ),
+                    UserAvatar(user: user, size: 64),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
@@ -434,34 +420,6 @@ class _SectionHeader extends StatelessWidget {
       );
 }
 
-class _InitialAvatar extends StatelessWidget {
-  final String initial;
-  const _InitialAvatar({required this.initial});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 64,
-      height: 64,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0055A4).withAlpha(15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF0055A4).withAlpha(40)),
-      ),
-      child: Center(
-        child: Text(
-          initial.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF0055A4),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -583,57 +541,79 @@ class _ThemeToggleTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(themeProvider);
-    final isDark = mode == ThemeMode.dark ||
-        (mode == ThemeMode.system &&
-            MediaQuery.platformBrightnessOf(context) == Brightness.dark);
     final cs = Theme.of(context).colorScheme;
+    final label = switch (mode) {
+      ThemeMode.dark => 'Dark mode',
+      ThemeMode.light => 'Light mode',
+      ThemeMode.system => 'Match device',
+    };
+    final icon = switch (mode) {
+      ThemeMode.dark => Icons.dark_mode_outlined,
+      ThemeMode.light => Icons.light_mode_outlined,
+      ThemeMode.system => Icons.brightness_auto_outlined,
+    };
 
-    return InkWell(
-      onTap: () => ref.read(themeProvider.notifier).toggle(),
-      child: Container(
-        color: cs.surface,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: Icon(
-                isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
-                size: 18,
-                color: cs.onSurfaceVariant,
-              ),
+    return Container(
+      color: cs.surface,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(9),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Theme',
-                      style:
-                          TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-                  const SizedBox(height: 1),
-                  Text(
-                    isDark ? 'Dark mode' : 'Light mode',
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface),
-                  ),
-                ],
+            child: Icon(icon, size: 18, color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Theme',
+                    style:
+                        TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                const SizedBox(height: 1),
+                Text(
+                  label,
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurface),
+                ),
+              ],
+            ),
+          ),
+          SegmentedButton<ThemeMode>(
+            segments: const [
+              ButtonSegment(
+                value: ThemeMode.light,
+                icon: Icon(Icons.light_mode_outlined, size: 18),
+                tooltip: 'Light',
               ),
+              ButtonSegment(
+                value: ThemeMode.dark,
+                icon: Icon(Icons.dark_mode_outlined, size: 18),
+                tooltip: 'Dark',
+              ),
+              ButtonSegment(
+                value: ThemeMode.system,
+                icon: Icon(Icons.brightness_auto_outlined, size: 18),
+                tooltip: 'System',
+              ),
+            ],
+            selected: {mode},
+            showSelectedIcon: false,
+            onSelectionChanged: (s) =>
+                ref.read(themeProvider.notifier).setMode(s.first),
+            style: const ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            Switch(
-              value: isDark,
-              onChanged: (_) =>
-                  ref.read(themeProvider.notifier).toggle(),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
