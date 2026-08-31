@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
@@ -68,6 +68,58 @@ function Avatar({ url, name }: { url: string | null; name: string | null }) {
   );
 }
 
+function CardMeta({ icon, children, title }: { icon: React.ReactNode; children: React.ReactNode; title?: string }) {
+  return (
+    <div className="flex items-center gap-2 min-w-0 text-xs">
+      <span className="text-gray-300 shrink-0">{icon}</span>
+      <span className="truncate min-w-0" title={title}>{children}</span>
+    </div>
+  );
+}
+
+const iconCls = 'w-3.5 h-3.5';
+
+const IconLink = () => (
+  <svg className={iconCls} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5m4.5-4.5l1.5-1.5a4 4 0 015.656 5.656l-3 3a4 4 0 01-5.656 0" />
+  </svg>
+);
+const IconMail = () => (
+  <svg className={iconCls} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+  </svg>
+);
+const IconShield = () => (
+  <svg className={iconCls} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l7 3v5c0 4.42-2.99 8.17-7 9-4.01-.83-7-4.58-7-9V6l7-3z" />
+  </svg>
+);
+const IconScale = () => (
+  <svg className={iconCls} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m-7-9l3-6 3 6a3 3 0 01-6 0zm10 0l3-6 3 6a3 3 0 01-6 0zM6 20h12" />
+  </svg>
+);
+const IconBolt = () => (
+  <svg className={iconCls} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+  </svg>
+);
+
+function stripScheme(url: string) {
+  return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+}
+
+const cardCls =
+  'bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3 ' +
+  'hover:border-gray-200 hover:shadow-md transition-all';
+
+const editBtnCls =
+  'cursor-pointer text-xs font-semibold text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg ' +
+  'hover:bg-gray-50 hover:text-gray-800 transition-colors';
+
+const emptyCls =
+  'bg-white rounded-2xl border border-gray-100 shadow-sm text-center text-sm text-gray-400 py-12';
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -134,6 +186,12 @@ export default function AdminDashboard() {
   }, [router]);
 
   useEffect(() => { load(); }, [load]);
+
+  const platformCountByAuthority = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const p of platforms) counts[p.authority_id] = (counts[p.authority_id] ?? 0) + 1;
+    return counts;
+  }, [platforms]);
 
   function openCreatePlatform() {
     setFName(''); setFBaseUrl(''); setFCategory(''); setFContactEmail('');
@@ -595,49 +653,53 @@ export default function AdminDashboard() {
                 Add platform
               </button>
             </div>
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              {platforms.length === 0 ? (
-                <p className="text-center text-sm text-gray-400 py-10">No platforms yet</p>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 text-xs text-gray-400 font-semibold uppercase tracking-wide">
-                      <th className="text-left px-5 py-3">Platform</th>
-                      <th className="text-left px-4 py-3 hidden sm:table-cell">Authority</th>
-                      <th className="text-left px-4 py-3 hidden md:table-cell">Contact</th>
-                      <th className="px-5 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {platforms.map(p => (
-                      <tr key={p.id} className="hover:bg-gray-50/60 transition-colors">
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-3">
-                            <Avatar url={p.avatar_url} name={p.name} />
-                            <div className="min-w-0">
-                              <p className="font-semibold text-gray-900 truncate">{p.name}</p>
-                              <p className="text-xs text-gray-400 truncate">{p.category}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 hidden sm:table-cell text-gray-600 text-xs">{p.authority_name}</td>
-                        <td className="px-4 py-3 hidden md:table-cell text-xs text-gray-500">
-                          {p.contact_email
-                            ? <span>{p.contact_name ? `${p.contact_name} · ` : ''}{p.contact_email}</span>
-                            : <span className="italic text-gray-300">No contact set</span>}
-                        </td>
-                        <td className="px-5 py-3 text-right">
-                          <button onClick={() => openEditPlatform(p)}
-                            className="text-xs text-gray-500 border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50 transition-colors">
-                            Edit
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+            {platforms.length === 0 ? (
+              <p className={emptyCls}>No platforms yet</p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {platforms.map(p => (
+                  <div key={p.id} className={cardCls}>
+                    <div className="flex items-start gap-3 min-w-0">
+                      <Avatar url={p.avatar_url} name={p.name} />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-gray-900 leading-snug line-clamp-2" title={p.name}>{p.name}</p>
+                        <p className="text-xs text-gray-400 truncate mt-0.5" title={p.category}>{p.category}</p>
+                      </div>
+                      {p.webhook_url && (
+                        <span title={`Webhook: ${p.webhook_url}`}
+                          className="shrink-0 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-brand bg-brand/10 px-2 py-0.5 rounded-full">
+                          <IconBolt />
+                          Hook
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 border-t border-gray-50 pt-3">
+                      <CardMeta icon={<IconLink />} title={p.base_url}>
+                        <a href={p.base_url} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
+                          {stripScheme(p.base_url)}
+                        </a>
+                      </CardMeta>
+                      <CardMeta icon={<IconShield />} title={p.authority_name}>
+                        <span className="text-gray-600">{p.authority_name}</span>
+                      </CardMeta>
+                      <CardMeta icon={<IconMail />} title={p.contact_email ?? undefined}>
+                        {p.contact_email
+                          ? <span className="text-gray-500">
+                              {p.contact_name && <span className="text-gray-600">{p.contact_name} · </span>}
+                              {p.contact_email}
+                            </span>
+                          : <span className="italic text-gray-300">No contact set</span>}
+                      </CardMeta>
+                    </div>
+
+                    <div className="flex justify-end mt-auto">
+                      <button onClick={() => openEditPlatform(p)} className={editBtnCls}>Edit</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
@@ -654,66 +716,52 @@ export default function AdminDashboard() {
                 Add authority
               </button>
             </div>
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              {authoritiesData.length === 0 ? (
-                <p className="text-center text-sm text-gray-400 py-10">No authorities yet</p>
-              ) : (
-                <table className="w-full text-sm table-fixed">
-                  <thead>
-                    <tr className="border-b border-gray-100 text-xs text-gray-400 font-semibold uppercase tracking-wide">
-                      <th className="text-left px-5 py-3 w-[42%] sm:w-[38%] md:w-[34%]">Authority</th>
-                      <th className="text-left px-4 py-3 hidden md:table-cell w-[24%]">Remit</th>
-                      <th className="text-left px-4 py-3 hidden sm:table-cell w-[28%]">Contact</th>
-                      <th className="px-5 py-3 w-24" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {authoritiesData.map(a => (
-                      <tr key={a.id} className="hover:bg-gray-50/60 transition-colors">
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-3">
-                            <Avatar url={a.avatar_url} name={a.name} />
-                            <div className="min-w-0">
-                              <p className="font-semibold text-gray-900 truncate" title={a.name}>{a.name}</p>
-                              {a.website_url && (
-                                <a href={a.website_url} target="_blank" rel="noopener noreferrer"
-                                  title={a.website_url}
-                                  className="text-xs text-brand hover:underline truncate block">
-                                  {a.website_url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 hidden md:table-cell text-xs text-gray-400">
-                          {a.remit_description
-                            ? <span className="block truncate" title={a.remit_description}>{a.remit_description}</span>
-                            : <span className="italic">—</span>}
-                        </td>
-                        <td className="px-4 py-3 hidden sm:table-cell text-xs">
-                          {a.contact_email ? (
-                            <div className="min-w-0">
-                              {a.contact_name && (
-                                <p className="text-gray-600 truncate" title={a.contact_name}>{a.contact_name}</p>
-                              )}
-                              <p className="text-gray-400 truncate" title={a.contact_email}>{a.contact_email}</p>
-                            </div>
-                          ) : (
-                            <span className="italic text-gray-300">No contact set</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3 text-right">
-                          <button onClick={() => openEditAuthority(a)}
-                            className="cursor-pointer text-xs text-gray-500 border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50 hover:text-gray-800 transition-colors">
-                            Edit
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+            {authoritiesData.length === 0 ? (
+              <p className={emptyCls}>No authorities yet</p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {authoritiesData.map(a => (
+                  <div key={a.id} className={cardCls}>
+                    <div className="flex items-start gap-3 min-w-0">
+                      <Avatar url={a.avatar_url} name={a.name} />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-gray-900 leading-snug line-clamp-2" title={a.name}>{a.name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {platformCountByAuthority[a.id] ?? 0} platform{(platformCountByAuthority[a.id] ?? 0) !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 border-t border-gray-50 pt-3">
+                      <CardMeta icon={<IconScale />} title={a.remit_description ?? undefined}>
+                        {a.remit_description
+                          ? <span className="text-gray-600">{a.remit_description}</span>
+                          : <span className="italic text-gray-300">No remit set</span>}
+                      </CardMeta>
+                      <CardMeta icon={<IconLink />} title={a.website_url ?? undefined}>
+                        {a.website_url
+                          ? <a href={a.website_url} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
+                              {stripScheme(a.website_url)}
+                            </a>
+                          : <span className="italic text-gray-300">No website set</span>}
+                      </CardMeta>
+                      <CardMeta icon={<IconMail />} title={a.contact_email ?? undefined}>
+                        {a.contact_email
+                          ? <span className="text-gray-500">
+                              {a.contact_name && <span className="text-gray-600">{a.contact_name} · </span>}
+                              {a.contact_email}
+                            </span>
+                          : <span className="italic text-gray-300">No contact set</span>}
+                      </CardMeta>
+                    </div>
+
+                    <div className="flex justify-end mt-auto">
+                      <button onClick={() => openEditAuthority(a)} className={editBtnCls}>Edit</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         )}
       </div>
