@@ -658,13 +658,13 @@ export default function AdminDashboard() {
               {authoritiesData.length === 0 ? (
                 <p className="text-center text-sm text-gray-400 py-10">No authorities yet</p>
               ) : (
-                <table className="w-full text-sm">
+                <table className="w-full text-sm table-fixed">
                   <thead>
                     <tr className="border-b border-gray-100 text-xs text-gray-400 font-semibold uppercase tracking-wide">
-                      <th className="text-left px-5 py-3">Authority</th>
-                      <th className="text-left px-4 py-3 hidden md:table-cell">Remit</th>
-                      <th className="text-left px-4 py-3 hidden sm:table-cell">Contact</th>
-                      <th className="px-5 py-3" />
+                      <th className="text-left px-5 py-3 w-[42%] sm:w-[38%] md:w-[34%]">Authority</th>
+                      <th className="text-left px-4 py-3 hidden md:table-cell w-[24%]">Remit</th>
+                      <th className="text-left px-4 py-3 hidden sm:table-cell w-[28%]">Contact</th>
+                      <th className="px-5 py-3 w-24" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -674,27 +674,37 @@ export default function AdminDashboard() {
                           <div className="flex items-center gap-3">
                             <Avatar url={a.avatar_url} name={a.name} />
                             <div className="min-w-0">
-                              <p className="font-semibold text-gray-900 truncate">{a.name}</p>
+                              <p className="font-semibold text-gray-900 truncate" title={a.name}>{a.name}</p>
                               {a.website_url && (
                                 <a href={a.website_url} target="_blank" rel="noopener noreferrer"
+                                  title={a.website_url}
                                   className="text-xs text-brand hover:underline truncate block">
-                                  {a.website_url.replace(/^https?:\/\//, '')}
+                                  {a.website_url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
                                 </a>
                               )}
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 hidden md:table-cell text-xs text-gray-400 max-w-55 truncate">
-                          {a.remit_description ?? <span className="italic">—</span>}
+                        <td className="px-4 py-3 hidden md:table-cell text-xs text-gray-400">
+                          {a.remit_description
+                            ? <span className="block truncate" title={a.remit_description}>{a.remit_description}</span>
+                            : <span className="italic">—</span>}
                         </td>
-                        <td className="px-4 py-3 hidden sm:table-cell text-xs text-gray-500">
-                          {a.contact_email
-                            ? <span>{a.contact_name ? `${a.contact_name} · ` : ''}{a.contact_email}</span>
-                            : <span className="italic text-gray-300">No contact set</span>}
+                        <td className="px-4 py-3 hidden sm:table-cell text-xs">
+                          {a.contact_email ? (
+                            <div className="min-w-0">
+                              {a.contact_name && (
+                                <p className="text-gray-600 truncate" title={a.contact_name}>{a.contact_name}</p>
+                              )}
+                              <p className="text-gray-400 truncate" title={a.contact_email}>{a.contact_email}</p>
+                            </div>
+                          ) : (
+                            <span className="italic text-gray-300">No contact set</span>
+                          )}
                         </td>
                         <td className="px-5 py-3 text-right">
                           <button onClick={() => openEditAuthority(a)}
-                            className="text-xs text-gray-500 border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50 transition-colors">
+                            className="cursor-pointer text-xs text-gray-500 border border-gray-200 px-3 py-1 rounded-lg hover:bg-gray-50 hover:text-gray-800 transition-colors">
                             Edit
                           </button>
                         </td>
