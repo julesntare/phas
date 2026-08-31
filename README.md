@@ -214,6 +214,7 @@ PostgreSQL (Neon serverless). Migrations are plain `.sql` files in `db/migration
 | 017 | citizen_comments | Link comments to citizen accounts |
 | 018 | citizen_notifications | Extend device_tokens and subscriptions to support both phone and Google OAuth citizens |
 | 019 | platform_api_keys | Long-lived API keys for external integrations |
+| 022 | authority_website | Public website URL on authorities |
 
 ---
 

@@ -20,10 +20,10 @@ export async function GET(req: NextRequest) {
   `;
 
   const authorities = await sql<{
-    id: string; name: string; remit_description: string | null;
+    id: string; name: string; remit_description: string | null; website_url: string | null;
     contact_email: string | null; contact_name: string | null; avatar_url: string | null;
   }[]>`
-    SELECT id, name, remit_description, contact_email, contact_name, avatar_url
+    SELECT id, name, remit_description, website_url, contact_email, contact_name, avatar_url
     FROM authorities
     ORDER BY name
   `;
@@ -62,8 +62,9 @@ export async function POST(req: NextRequest) {
   }
 
   if (type === 'authority') {
-    const { name, remitDescription, contactEmail, contactName } = body as {
-      name: string; remitDescription?: string; contactEmail: string; contactName?: string;
+    const { name, remitDescription, websiteUrl, contactEmail, contactName } = body as {
+      name: string; remitDescription?: string; websiteUrl?: string;
+      contactEmail: string; contactName?: string;
     };
 
     if (!name || !contactEmail) {
@@ -71,8 +72,9 @@ export async function POST(req: NextRequest) {
     }
 
     const [row] = await sql<{ id: string }[]>`
-      INSERT INTO authorities (name, remit_description, contact_email, contact_name)
-      VALUES (${name}, ${remitDescription ?? null}, ${contactEmail.trim().toLowerCase()}, ${contactName ?? null})
+      INSERT INTO authorities (name, remit_description, website_url, contact_email, contact_name)
+      VALUES (${name}, ${remitDescription ?? null}, ${websiteUrl ?? null},
+              ${contactEmail.trim().toLowerCase()}, ${contactName ?? null})
       RETURNING id
     `;
 

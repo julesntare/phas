@@ -39,13 +39,14 @@ export async function PATCH(
   }
 
   if (type === 'authority') {
-    const { name, remitDescription, contactEmail, contactName, avatarUrl, password } = body as {
-      name?: string; remitDescription?: string; contactEmail?: string;
+    const { name, remitDescription, websiteUrl, contactEmail, contactName, avatarUrl, password } = body as {
+      name?: string; remitDescription?: string; websiteUrl?: string; contactEmail?: string;
       contactName?: string; avatarUrl?: string; password?: string;
     };
 
     if (name !== undefined) await sql`UPDATE authorities SET name = ${name} WHERE id = ${id}`;
     if (remitDescription !== undefined) await sql`UPDATE authorities SET remit_description = ${remitDescription} WHERE id = ${id}`;
+    if (websiteUrl !== undefined) await sql`UPDATE authorities SET website_url = ${websiteUrl || null} WHERE id = ${id}`;
     if (contactEmail !== undefined) await sql`UPDATE authorities SET contact_email = ${contactEmail.trim().toLowerCase()} WHERE id = ${id}`;
     if (contactName !== undefined) await sql`UPDATE authorities SET contact_name = ${contactName} WHERE id = ${id}`;
     if (avatarUrl !== undefined) await sql`UPDATE authorities SET avatar_url = ${avatarUrl} WHERE id = ${id}`;

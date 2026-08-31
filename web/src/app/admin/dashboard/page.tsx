@@ -47,7 +47,7 @@ interface Platform {
   webhook_url: string | null;
 }
 interface AuthorityAccount {
-  id: string; name: string; remit_description: string | null;
+  id: string; name: string; remit_description: string | null; website_url: string | null;
   contact_email: string | null; contact_name: string | null; avatar_url: string | null;
 }
 interface AuthorityMeta { id: string; name: string }
@@ -101,6 +101,7 @@ export default function AdminDashboard() {
   // Authority form fields
   const [aName, setAName] = useState('');
   const [aRemitDescription, setARemitDescription] = useState('');
+  const [aWebsiteUrl, setAWebsiteUrl] = useState('');
   const [aContactEmail, setAContactEmail] = useState('');
   const [aContactName, setAContactName] = useState('');
   const [aAvatarUrl, setAAvatarUrl] = useState<string | null>(null);
@@ -155,7 +156,8 @@ export default function AdminDashboard() {
   }
 
   function openCreateAuthority() {
-    setAName(''); setARemitDescription(''); setAContactEmail(''); setAContactName('');
+    setAName(''); setARemitDescription(''); setAWebsiteUrl('');
+    setAContactEmail(''); setAContactName('');
     setAAvatarUrl(null); setAPassword('');
     setModalError('');
     setModal({ mode: 'create', type: 'authority' });
@@ -163,6 +165,7 @@ export default function AdminDashboard() {
 
   function openEditAuthority(a: AuthorityAccount) {
     setAName(a.name); setARemitDescription(a.remit_description ?? '');
+    setAWebsiteUrl(a.website_url ?? '');
     setAContactEmail(a.contact_email ?? ''); setAContactName(a.contact_name ?? '');
     setAAvatarUrl(a.avatar_url); setAPassword('');
     setModalError('');
@@ -232,6 +235,7 @@ export default function AdminDashboard() {
         body: JSON.stringify({
           type: 'authority', name: aName,
           ...(aRemitDescription && { remitDescription: aRemitDescription }),
+          ...(aWebsiteUrl && { websiteUrl: aWebsiteUrl }),
           contactEmail: aContactEmail,
           ...(aContactName && { contactName: aContactName }),
         }),
@@ -250,6 +254,7 @@ export default function AdminDashboard() {
     const body: Record<string, string | null> = { type: 'authority' };
     if (aName !== orig.name) body.name = aName;
     if (aRemitDescription !== (orig.remit_description ?? '')) body.remitDescription = aRemitDescription || null;
+    if (aWebsiteUrl !== (orig.website_url ?? '')) body.websiteUrl = aWebsiteUrl || null;
     if (aContactEmail !== (orig.contact_email ?? '')) body.contactEmail = aContactEmail;
     if (aContactName !== (orig.contact_name ?? '')) body.contactName = aContactName;
     if (aAvatarUrl !== orig.avatar_url && aAvatarUrl !== null) body.avatarUrl = aAvatarUrl;
@@ -668,7 +673,15 @@ export default function AdminDashboard() {
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-3">
                             <Avatar url={a.avatar_url} name={a.name} />
-                            <p className="font-semibold text-gray-900 truncate">{a.name}</p>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-gray-900 truncate">{a.name}</p>
+                              {a.website_url && (
+                                <a href={a.website_url} target="_blank" rel="noopener noreferrer"
+                                  className="text-xs text-brand hover:underline truncate block">
+                                  {a.website_url.replace(/^https?:\/\//, '')}
+                                </a>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-4 py-3 hidden md:table-cell text-xs text-gray-400 max-w-55 truncate">
@@ -837,6 +850,9 @@ export default function AdminDashboard() {
                   </Field>
                   <Field label="Remit description">
                     <input value={aRemitDescription} onChange={e => setARemitDescription(e.target.value)} placeholder="e.g. Telecom & internet regulation" className={inputCls} />
+                  </Field>
+                  <Field label="Website">
+                    <input value={aWebsiteUrl} onChange={e => setAWebsiteUrl(e.target.value)} type="url" placeholder="https://www.rura.rw" className={inputCls} />
                   </Field>
                   <Field label="Contact email *">
                     <input value={aContactEmail} onChange={e => setAContactEmail(e.target.value)} type="email" placeholder="portal@authority.rw" className={inputCls} />
