@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
@@ -186,6 +186,13 @@ export default function AdminDashboard() {
   }, [router]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!modal) return;
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setModal(null); }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [modal]);
 
   const platformCountByAuthority = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -801,83 +808,91 @@ export default function AdminDashboard() {
 
       {/* Modal */}
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-bold text-gray-900">
-                {modal.mode === 'create'
-                  ? `Add ${modal.type}`
-                  : `Edit ${modal.type}`}
-              </h3>
-              <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-600">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] px-4 py-6"
+          onMouseDown={() => setModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[88vh] overflow-hidden"
+            onMouseDown={e => e.stopPropagation()}>
+
+            <header className="flex items-start justify-between gap-4 px-6 py-5 border-b border-gray-100 shrink-0">
+              <div className="min-w-0">
+                <h3 className="text-base font-bold text-gray-900">
+                  {modal.mode === 'create' ? `Add ${modal.type}` : `Edit ${modal.type}`}
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5 truncate">
+                  {modal.mode === 'create'
+                    ? modal.type === 'platform'
+                      ? 'Register a service to monitor and its owning authority'
+                      : 'Register a regulator that oversees platforms'
+                    : (modal.item as Platform | AuthorityAccount).name}
+                </p>
+              </div>
+              <button onClick={() => setModal(null)}
+                className="cursor-pointer text-gray-400 hover:text-gray-600 transition-colors shrink-0">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-            </div>
+            </header>
 
-            <div className="space-y-4">
+            <div className="px-6 py-5 space-y-6 overflow-y-auto">
               {/* ── PLATFORM MODAL ── */}
               {modal.type === 'platform' && (
                 <>
                   {modal.mode === 'edit' && (
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-2">Logo</label>
-                      <div className="flex items-center gap-3">
-                        {fAvatarUrl
-                          // eslint-disable-next-line @next/next/no-img-element
-                          ? <img src={fAvatarUrl} alt="logo" className="w-14 h-14 rounded-xl object-cover border border-gray-200" />
-                          : <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center text-xl text-gray-400 font-bold">{(fName || '?')[0]?.toUpperCase()}</div>
-                        }
-                        <label className={`cursor-pointer px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors ${avatarUploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                          {avatarUploading ? 'Uploading…' : 'Upload logo'}
-                          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                            onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(f, 'platform'); e.target.value = ''; }} />
-                        </label>
-                        {fAvatarUrl && <button onClick={() => setFAvatarUrl(null)} className="text-xs text-red-400 hover:text-red-600">Remove</button>}
-                      </div>
-                    </div>
+                    <Section title="Logo">
+                      <AvatarPicker label="Logo" url={fAvatarUrl} name={fName} uploading={avatarUploading}
+                        onUpload={f => uploadAvatar(f, 'platform')} onRemove={() => setFAvatarUrl(null)} />
+                    </Section>
                   )}
 
-                  <Field label="Platform name *">
-                    <input value={fName} onChange={e => setFName(e.target.value)} placeholder="e.g. MTN Rwanda" className={inputCls} />
-                  </Field>
-                  <Field label="Base URL *">
-                    <input value={fBaseUrl} onChange={e => setFBaseUrl(e.target.value)} placeholder="https://mtn.rw" type="url" className={inputCls} />
-                  </Field>
-                  <Field label="Category *">
-                    <input value={fCategory} onChange={e => setFCategory(e.target.value)} placeholder="e.g. telecom, banking, government" className={inputCls} />
-                  </Field>
-                  <Field label="Authority *">
-                    <select value={fAuthorityId} onChange={e => setFAuthorityId(e.target.value)} className={selectCls}>
-                      <option value="">— Select authority —</option>
-                      {authoritiesMeta.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="Contact email *">
-                    <input value={fContactEmail} onChange={e => setFContactEmail(e.target.value)} type="email" placeholder="support@platform.rw" className={inputCls} />
-                  </Field>
-                  <Field label="Contact name">
-                    <input value={fContactName} onChange={e => setFContactName(e.target.value)} placeholder="e.g. MTN Helpdesk Team" className={inputCls} />
-                  </Field>
-                  <Field label="Webhook URL">
-                    <input value={fWebhookUrl} onChange={e => setFWebhookUrl(e.target.value)} type="url" placeholder="https://… (optional)" className={inputCls} />
-                  </Field>
-
-                  {modal.mode === 'create' ? (
-                    <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-3.5 py-3">
-                      <svg className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <p className="text-xs text-blue-700 leading-relaxed">
-                        No password is set yet. A setup code will be sent to the contact email automatically on their first sign-in attempt.
-                      </p>
-                    </div>
-                  ) : (
-                    <Field label="Reset password">
-                      <input type="password" value={fPassword} onChange={e => setFPassword(e.target.value)} placeholder="Leave blank to keep current" className={inputCls} />
+                  <Section title="Details">
+                    <Field label="Platform name" required>
+                      <input value={fName} onChange={e => setFName(e.target.value)} placeholder="e.g. MTN Rwanda" className={inputCls} />
                     </Field>
-                  )}
+                    <div className="grid sm:grid-cols-2 gap-3.5">
+                      <Field label="Base URL" required>
+                        <input value={fBaseUrl} onChange={e => setFBaseUrl(e.target.value)} placeholder="https://mtn.rw" type="url" className={inputCls} />
+                      </Field>
+                      <Field label="Category" required>
+                        <input value={fCategory} onChange={e => setFCategory(e.target.value)} placeholder="e.g. telecom" className={inputCls} />
+                      </Field>
+                    </div>
+                    <Field label="Authority" required hint="The regulator responsible for this platform.">
+                      <SearchSelect value={fAuthorityId} onChange={setFAuthorityId} options={authoritiesMeta}
+                        placeholder="Select authority" emptyLabel="No authority matches that search" />
+                    </Field>
+                  </Section>
+
+                  <Section title="Contact">
+                    <div className="grid sm:grid-cols-2 gap-3.5">
+                      <Field label="Contact email" required>
+                        <input value={fContactEmail} onChange={e => setFContactEmail(e.target.value)} type="email" placeholder="support@platform.rw" className={inputCls} />
+                      </Field>
+                      <Field label="Contact name">
+                        <input value={fContactName} onChange={e => setFContactName(e.target.value)} placeholder="e.g. MTN Helpdesk" className={inputCls} />
+                      </Field>
+                    </div>
+                    <Field label="Webhook URL" hint="Optional. Incident events are POSTed here as they happen.">
+                      <input value={fWebhookUrl} onChange={e => setFWebhookUrl(e.target.value)} type="url" placeholder="https://…" className={inputCls} />
+                    </Field>
+                  </Section>
+
+                  <Section title="Access">
+                    {modal.mode === 'create' ? (
+                      <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-3.5 py-3">
+                        <svg className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-xs text-blue-700 leading-relaxed">
+                          No password is set yet. A setup code will be sent to the contact email automatically on their first sign-in attempt.
+                        </p>
+                      </div>
+                    ) : (
+                      <Field label="Reset password" hint="Minimum 8 characters.">
+                        <input type="password" value={fPassword} onChange={e => setFPassword(e.target.value)} placeholder="Leave blank to keep current" className={inputCls} />
+                      </Field>
+                    )}
+                  </Section>
                 </>
               )}
 
@@ -885,62 +900,67 @@ export default function AdminDashboard() {
               {modal.type === 'authority' && (
                 <>
                   {modal.mode === 'edit' && (
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-2">Avatar</label>
-                      <div className="flex items-center gap-3">
-                        {aAvatarUrl
-                          // eslint-disable-next-line @next/next/no-img-element
-                          ? <img src={aAvatarUrl} alt="avatar" className="w-14 h-14 rounded-xl object-cover border border-gray-200" />
-                          : <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center text-xl text-gray-400 font-bold">{(aName || '?')[0]?.toUpperCase()}</div>
-                        }
-                        <label className={`cursor-pointer px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors ${avatarUploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                          {avatarUploading ? 'Uploading…' : 'Upload avatar'}
-                          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                            onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(f, 'authority'); e.target.value = ''; }} />
-                        </label>
-                        {aAvatarUrl && <button onClick={() => setAAvatarUrl(null)} className="text-xs text-red-400 hover:text-red-600">Remove</button>}
-                      </div>
-                    </div>
+                    <Section title="Avatar">
+                      <AvatarPicker label="Avatar" url={aAvatarUrl} name={aName} uploading={avatarUploading}
+                        onUpload={f => uploadAvatar(f, 'authority')} onRemove={() => setAAvatarUrl(null)} />
+                    </Section>
                   )}
 
-                  <Field label="Authority name *">
-                    <input value={aName} onChange={e => setAName(e.target.value)} placeholder="e.g. RURA" className={inputCls} />
-                  </Field>
-                  <Field label="Remit description">
-                    <input value={aRemitDescription} onChange={e => setARemitDescription(e.target.value)} placeholder="e.g. Telecom & internet regulation" className={inputCls} />
-                  </Field>
-                  <Field label="Website">
-                    <input value={aWebsiteUrl} onChange={e => setAWebsiteUrl(e.target.value)} type="url" placeholder="https://www.rura.rw" className={inputCls} />
-                  </Field>
-                  <Field label="Contact email *">
-                    <input value={aContactEmail} onChange={e => setAContactEmail(e.target.value)} type="email" placeholder="portal@authority.rw" className={inputCls} />
-                  </Field>
-                  <Field label="Contact name">
-                    <input value={aContactName} onChange={e => setAContactName(e.target.value)} placeholder="e.g. RURA Oversight Team" className={inputCls} />
-                  </Field>
-
-                  {modal.mode === 'create' ? (
-                    <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-3.5 py-3">
-                      <svg className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <p className="text-xs text-blue-700 leading-relaxed">
-                        A setup code will be emailed to this address. They&apos;ll use it to set their own password on first sign-in.
-                      </p>
-                    </div>
-                  ) : (
-                    <Field label="Reset password">
-                      <input type="password" value={aPassword} onChange={e => setAPassword(e.target.value)} placeholder="Leave blank to keep current" className={inputCls} />
+                  <Section title="Details">
+                    <Field label="Authority name" required>
+                      <input value={aName} onChange={e => setAName(e.target.value)} placeholder="e.g. Rwanda Utilities Regulatory Authority (RURA)" className={inputCls} />
                     </Field>
-                  )}
+                    <Field label="Remit description" hint="Shown to citizens as the scope this authority oversees.">
+                      <input value={aRemitDescription} onChange={e => setARemitDescription(e.target.value)} placeholder="e.g. Telecom & internet regulation" className={inputCls} />
+                    </Field>
+                    <Field label="Website">
+                      <input value={aWebsiteUrl} onChange={e => setAWebsiteUrl(e.target.value)} type="url" placeholder="https://www.rura.rw" className={inputCls} />
+                    </Field>
+                  </Section>
+
+                  <Section title="Contact">
+                    <div className="grid sm:grid-cols-2 gap-3.5">
+                      <Field label="Contact email" required>
+                        <input value={aContactEmail} onChange={e => setAContactEmail(e.target.value)} type="email" placeholder="portal@authority.rw" className={inputCls} />
+                      </Field>
+                      <Field label="Contact name">
+                        <input value={aContactName} onChange={e => setAContactName(e.target.value)} placeholder="e.g. Oversight Team" className={inputCls} />
+                      </Field>
+                    </div>
+                  </Section>
+
+                  <Section title="Access">
+                    {modal.mode === 'create' ? (
+                      <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-3.5 py-3">
+                        <svg className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-xs text-blue-700 leading-relaxed">
+                          A setup code will be emailed to this address. They&apos;ll use it to set their own password on first sign-in.
+                        </p>
+                      </div>
+                    ) : (
+                      <Field label="Reset password" hint="Minimum 8 characters.">
+                        <input type="password" value={aPassword} onChange={e => setAPassword(e.target.value)} placeholder="Leave blank to keep current" className={inputCls} />
+                      </Field>
+                    )}
+                  </Section>
                 </>
               )}
+            </div>
 
-              {modalError && <p className="text-xs text-red-600">{modalError}</p>}
-
-              <div className="flex gap-2 pt-1">
+            <footer className="px-6 py-4 border-t border-gray-100 bg-gray-50/60 shrink-0 space-y-3">
+              {modalError && (
+                <div className="flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5">
+                  <svg className="w-4 h-4 text-red-400 mt-px shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                  <p className="text-xs text-red-600 leading-relaxed">{modalError}</p>
+                </div>
+              )}
+              <div className="flex gap-2">
                 <button onClick={() => setModal(null)}
-                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                  className="cursor-pointer flex-1 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
                   Cancel
                 </button>
                 <button
@@ -950,11 +970,11 @@ export default function AdminDashboard() {
                       : (modal.mode === 'create' ? submitCreateAuthority : submitEditAuthority)
                   }
                   disabled={saving}
-                  className="flex-1 py-2.5 bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors">
+                  className="cursor-pointer flex-1 py-2.5 bg-brand hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm transition-colors">
                   {saving ? 'Saving…' : modal.mode === 'create' ? 'Create' : 'Save changes'}
                 </button>
               </div>
-            </div>
+            </footer>
           </div>
         </div>
       )}
@@ -962,14 +982,178 @@ export default function AdminDashboard() {
   );
 }
 
-const inputCls = 'w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition';
-const selectCls = `${inputCls} bg-white`;
+const inputCls = 'w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition';
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, required, hint, children }: {
+  label: string; required?: boolean; hint?: string; children: React.ReactNode;
+}) {
   return (
-    <div>
-      <label className="block text-xs font-semibold text-gray-500 mb-1.5">{label}</label>
+    <div className="min-w-0">
+      <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+        {label}
+        {required && <span className="text-red-400 ml-0.5">*</span>}
+      </label>
       {children}
+      {hint && <p className="text-[11px] text-gray-400 mt-1.5 leading-relaxed">{hint}</p>}
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3.5">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">{title}</p>
+      {children}
+    </section>
+  );
+}
+
+/** Single-select combobox with type-ahead filtering and keyboard navigation. */
+function SearchSelect({ value, onChange, options, placeholder = 'Select…', emptyLabel = 'No matches' }: {
+  value: string;
+  onChange: (id: string) => void;
+  options: { id: string; name: string }[];
+  placeholder?: string;
+  emptyLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [active, setActive] = useState(0);
+  const [dropUp, setDropUp] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  const selected = options.find(o => o.id === value) ?? null;
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(o => o.name.toLowerCase().includes(q));
+  }, [options, query]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    setQuery('');
+    setActive(Math.max(0, options.findIndex(o => o.id === value)));
+    inputRef.current?.focus();
+  }, [open, options, value]);
+
+  // Keep the highlighted row in view while arrowing through the list.
+  useEffect(() => {
+    listRef.current?.querySelector(`[data-idx="${active}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [active]);
+
+  function openList() {
+    const rect = boxRef.current?.getBoundingClientRect();
+    // Flip above the trigger when the panel would run off the bottom of the viewport.
+    if (rect) setDropUp(window.innerHeight - rect.bottom < 260 && rect.top > 260);
+    setOpen(true);
+  }
+
+  function pick(id: string) {
+    onChange(id);
+    setOpen(false);
+  }
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(i => Math.min(i + 1, filtered.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(i => Math.max(i - 1, 0)); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (filtered[active]) pick(filtered[active].id); }
+    else if (e.key === 'Escape') { e.preventDefault(); setOpen(false); }
+  }
+
+  return (
+    <div ref={boxRef} className="relative">
+      <button type="button" onClick={() => (open ? setOpen(false) : openList())}
+        className={`${inputCls} cursor-pointer bg-white flex items-center justify-between gap-2 text-left ${open ? 'ring-2 ring-brand/30 border-brand' : ''}`}>
+        <span className={`truncate ${selected ? 'text-gray-900' : 'text-gray-300'}`}>
+          {selected ? selected.name : placeholder}
+        </span>
+        <svg className={`w-4 h-4 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className={`absolute z-30 w-full bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden ${dropUp ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
+          <div className="relative border-b border-gray-100">
+            <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-300"
+              fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+            </svg>
+            <input ref={inputRef} value={query}
+              onChange={e => { setQuery(e.target.value); setActive(0); }}
+              onKeyDown={onKeyDown}
+              placeholder="Search…"
+              className="w-full pl-9 pr-3 py-2.5 text-sm placeholder:text-gray-300 focus:outline-none" />
+          </div>
+
+          <ul ref={listRef} className="max-h-56 overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <li className="px-3.5 py-3 text-xs text-gray-400 italic">{emptyLabel}</li>
+            ) : filtered.map((o, i) => (
+              <li key={o.id} data-idx={i}>
+                <button type="button"
+                  onClick={() => pick(o.id)}
+                  onMouseEnter={() => setActive(i)}
+                  className={`w-full cursor-pointer text-left px-3.5 py-2 text-sm flex items-center gap-2 transition-colors
+                    ${i === active ? 'bg-brand/10' : ''} ${o.id === value ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
+                  <span className="flex-1 min-w-0 truncate" title={o.name}>{o.name}</span>
+                  {o.id === value && (
+                    <svg className="w-4 h-4 shrink-0 text-brand" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AvatarPicker({ label, url, name, uploading, onUpload, onRemove }: {
+  label: string; url: string | null; name: string; uploading: boolean;
+  onUpload: (f: File) => void; onRemove: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-4">
+      {url
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={url} alt={label} className="w-14 h-14 rounded-xl object-cover border border-gray-200 shrink-0" />
+        : <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center text-xl text-gray-400 font-bold shrink-0">
+            {(name || '?')[0]?.toUpperCase()}
+          </div>
+      }
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <label className={`cursor-pointer px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+            {uploading ? 'Uploading…' : `Upload ${label.toLowerCase()}`}
+            <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ''; }} />
+          </label>
+          {url && (
+            <button type="button" onClick={onRemove}
+              className="cursor-pointer text-xs font-semibold text-red-400 hover:text-red-600 transition-colors">
+              Remove
+            </button>
+          )}
+        </div>
+        <p className="text-[11px] text-gray-400 mt-1.5">JPG, PNG or WebP.</p>
+      </div>
     </div>
   );
 }
