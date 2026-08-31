@@ -120,6 +120,57 @@ const editBtnCls =
 const emptyCls =
   'bg-white rounded-2xl border border-gray-100 shadow-sm text-center text-sm text-gray-400 py-12';
 
+const PAGE_SIZE = 6;
+
+const navArrowCls =
+  'absolute top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm ' +
+  'border border-gray-200 shadow-lg flex items-center justify-center text-gray-600 cursor-pointer ' +
+  'hover:bg-white hover:text-gray-900 hover:shadow-xl hover:scale-105 active:scale-95 transition-all ' +
+  'disabled:opacity-0 disabled:pointer-events-none';
+
+/** Carousel-style prev/next arrows floating over the left and right edges of a grid. */
+function CarouselNav({ page, totalPages, onPage }: {
+  page: number; totalPages: number; onPage: (p: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+  return (
+    <>
+      <button type="button" aria-label="Previous page" disabled={page === 1}
+        onClick={() => onPage(page - 1)} className={`${navArrowCls} left-2 sm:left-3 xl:-left-14`}>
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+      <button type="button" aria-label="Next page" disabled={page === totalPages}
+        onClick={() => onPage(page + 1)} className={`${navArrowCls} right-2 sm:right-3 xl:-right-14`}>
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+    </>
+  );
+}
+
+/** "15 authorities · showing 1–9" for the section header. */
+function countLabel(total: number, page: number, totalPages: number, one: string, many: string) {
+  const noun = total === 1 ? one : many;
+  if (totalPages <= 1) return `${total} ${noun}`;
+  const from = (page - 1) * PAGE_SIZE + 1;
+  return `${total} ${noun} · showing ${from}–${Math.min(page * PAGE_SIZE, total)}`;
+}
+
+/** Clamped page state + the slice for the current page. */
+function usePaged<T>(items: T[]) {
+  const [rawPage, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const page = Math.min(rawPage, totalPages);
+  const slice = useMemo(
+    () => items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [items, page],
+  );
+  return { page, totalPages, slice, setPage, total: items.length };
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -193,6 +244,9 @@ export default function AdminDashboard() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [modal]);
+
+  const platformPage = usePaged(platforms);
+  const authorityPage = usePaged(authoritiesData);
 
   const platformCountByAuthority = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -651,7 +705,9 @@ export default function AdminDashboard() {
         {tab === 'platforms' && (
           <section>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-xs text-gray-400">{platforms.length} platform{platforms.length !== 1 ? 's' : ''}</p>
+              <p className="text-xs text-gray-400">
+                {countLabel(platformPage.total, platformPage.page, platformPage.totalPages, 'platform', 'platforms')}
+              </p>
               <button onClick={openCreatePlatform}
                 className="flex items-center gap-1.5 px-4 py-2 bg-brand text-white text-sm font-semibold rounded-xl hover:bg-brand-dark transition-colors">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -663,48 +719,51 @@ export default function AdminDashboard() {
             {platforms.length === 0 ? (
               <p className={emptyCls}>No platforms yet</p>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {platforms.map(p => (
-                  <div key={p.id} className={cardCls}>
-                    <div className="flex items-start gap-3 min-w-0">
-                      <Avatar url={p.avatar_url} name={p.name} />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-gray-900 leading-snug line-clamp-2" title={p.name}>{p.name}</p>
-                        <p className="text-xs text-gray-400 truncate mt-0.5" title={p.category}>{p.category}</p>
+              <div className="relative">
+                <CarouselNav page={platformPage.page} totalPages={platformPage.totalPages} onPage={platformPage.setPage} />
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {platformPage.slice.map(p => (
+                    <div key={p.id} className={cardCls}>
+                      <div className="flex items-start gap-3 min-w-0">
+                        <Avatar url={p.avatar_url} name={p.name} />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-gray-900 leading-snug line-clamp-2" title={p.name}>{p.name}</p>
+                          <p className="text-xs text-gray-400 truncate mt-0.5" title={p.category}>{p.category}</p>
+                        </div>
+                        {p.webhook_url && (
+                          <span title={`Webhook: ${p.webhook_url}`}
+                            className="shrink-0 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-brand bg-brand/10 px-2 py-0.5 rounded-full">
+                            <IconBolt />
+                            Hook
+                          </span>
+                        )}
                       </div>
-                      {p.webhook_url && (
-                        <span title={`Webhook: ${p.webhook_url}`}
-                          className="shrink-0 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-brand bg-brand/10 px-2 py-0.5 rounded-full">
-                          <IconBolt />
-                          Hook
-                        </span>
-                      )}
-                    </div>
 
-                    <div className="flex flex-col gap-1.5 border-t border-gray-50 pt-3">
-                      <CardMeta icon={<IconLink />} title={p.base_url}>
-                        <a href={p.base_url} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
-                          {stripScheme(p.base_url)}
-                        </a>
-                      </CardMeta>
-                      <CardMeta icon={<IconShield />} title={p.authority_name}>
-                        <span className="text-gray-600">{p.authority_name}</span>
-                      </CardMeta>
-                      <CardMeta icon={<IconMail />} title={p.contact_email ?? undefined}>
-                        {p.contact_email
-                          ? <span className="text-gray-500">
-                              {p.contact_name && <span className="text-gray-600">{p.contact_name} · </span>}
-                              {p.contact_email}
-                            </span>
-                          : <span className="italic text-gray-300">No contact set</span>}
-                      </CardMeta>
-                    </div>
+                      <div className="flex flex-col gap-1.5 border-t border-gray-50 pt-3">
+                        <CardMeta icon={<IconLink />} title={p.base_url}>
+                          <a href={p.base_url} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
+                            {stripScheme(p.base_url)}
+                          </a>
+                        </CardMeta>
+                        <CardMeta icon={<IconShield />} title={p.authority_name}>
+                          <span className="text-gray-600">{p.authority_name}</span>
+                        </CardMeta>
+                        <CardMeta icon={<IconMail />} title={p.contact_email ?? undefined}>
+                          {p.contact_email
+                            ? <span className="text-gray-500">
+                                {p.contact_name && <span className="text-gray-600">{p.contact_name} · </span>}
+                                {p.contact_email}
+                              </span>
+                            : <span className="italic text-gray-300">No contact set</span>}
+                        </CardMeta>
+                      </div>
 
-                    <div className="flex justify-end mt-auto">
-                      <button onClick={() => openEditPlatform(p)} className={editBtnCls}>Edit</button>
+                      <div className="flex justify-end mt-auto">
+                        <button onClick={() => openEditPlatform(p)} className={editBtnCls}>Edit</button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </section>
@@ -714,7 +773,9 @@ export default function AdminDashboard() {
         {tab === 'authorities' && (
           <section>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-xs text-gray-400">{authoritiesData.length} authorit{authoritiesData.length !== 1 ? 'ies' : 'y'}</p>
+              <p className="text-xs text-gray-400">
+                {countLabel(authorityPage.total, authorityPage.page, authorityPage.totalPages, 'authority', 'authorities')}
+              </p>
               <button onClick={openCreateAuthority}
                 className="flex items-center gap-1.5 px-4 py-2 bg-brand text-white text-sm font-semibold rounded-xl hover:bg-brand-dark transition-colors">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -726,47 +787,50 @@ export default function AdminDashboard() {
             {authoritiesData.length === 0 ? (
               <p className={emptyCls}>No authorities yet</p>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {authoritiesData.map(a => (
-                  <div key={a.id} className={cardCls}>
-                    <div className="flex items-start gap-3 min-w-0">
-                      <Avatar url={a.avatar_url} name={a.name} />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-gray-900 leading-snug line-clamp-2" title={a.name}>{a.name}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {platformCountByAuthority[a.id] ?? 0} platform{(platformCountByAuthority[a.id] ?? 0) !== 1 ? 's' : ''}
-                        </p>
+              <div className="relative">
+                <CarouselNav page={authorityPage.page} totalPages={authorityPage.totalPages} onPage={authorityPage.setPage} />
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {authorityPage.slice.map(a => (
+                    <div key={a.id} className={cardCls}>
+                      <div className="flex items-start gap-3 min-w-0">
+                        <Avatar url={a.avatar_url} name={a.name} />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-gray-900 leading-snug line-clamp-2" title={a.name}>{a.name}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {platformCountByAuthority[a.id] ?? 0} platform{(platformCountByAuthority[a.id] ?? 0) !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5 border-t border-gray-50 pt-3">
+                        <CardMeta icon={<IconScale />} title={a.remit_description ?? undefined}>
+                          {a.remit_description
+                            ? <span className="text-gray-600">{a.remit_description}</span>
+                            : <span className="italic text-gray-300">No remit set</span>}
+                        </CardMeta>
+                        <CardMeta icon={<IconLink />} title={a.website_url ?? undefined}>
+                          {a.website_url
+                            ? <a href={a.website_url} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
+                                {stripScheme(a.website_url)}
+                              </a>
+                            : <span className="italic text-gray-300">No website set</span>}
+                        </CardMeta>
+                        <CardMeta icon={<IconMail />} title={a.contact_email ?? undefined}>
+                          {a.contact_email
+                            ? <span className="text-gray-500">
+                                {a.contact_name && <span className="text-gray-600">{a.contact_name} · </span>}
+                                {a.contact_email}
+                              </span>
+                            : <span className="italic text-gray-300">No contact set</span>}
+                        </CardMeta>
+                      </div>
+
+                      <div className="flex justify-end mt-auto">
+                        <button onClick={() => openEditAuthority(a)} className={editBtnCls}>Edit</button>
                       </div>
                     </div>
-
-                    <div className="flex flex-col gap-1.5 border-t border-gray-50 pt-3">
-                      <CardMeta icon={<IconScale />} title={a.remit_description ?? undefined}>
-                        {a.remit_description
-                          ? <span className="text-gray-600">{a.remit_description}</span>
-                          : <span className="italic text-gray-300">No remit set</span>}
-                      </CardMeta>
-                      <CardMeta icon={<IconLink />} title={a.website_url ?? undefined}>
-                        {a.website_url
-                          ? <a href={a.website_url} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
-                              {stripScheme(a.website_url)}
-                            </a>
-                          : <span className="italic text-gray-300">No website set</span>}
-                      </CardMeta>
-                      <CardMeta icon={<IconMail />} title={a.contact_email ?? undefined}>
-                        {a.contact_email
-                          ? <span className="text-gray-500">
-                              {a.contact_name && <span className="text-gray-600">{a.contact_name} · </span>}
-                              {a.contact_email}
-                            </span>
-                          : <span className="italic text-gray-300">No contact set</span>}
-                      </CardMeta>
-                    </div>
-
-                    <div className="flex justify-end mt-auto">
-                      <button onClick={() => openEditAuthority(a)} className={editBtnCls}>Edit</button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </section>
