@@ -1,3 +1,5 @@
+import 'platform.dart';
+
 class Incident {
   final String id;
   final String platformId;
@@ -10,6 +12,7 @@ class Incident {
   final int cosignCount;
   final bool userHasCosigned;
   final List<IncidentEvent> events;
+  final List<PlatformReport> reports;
 
   const Incident({
     required this.id,
@@ -23,6 +26,7 @@ class Incident {
     required this.cosignCount,
     required this.userHasCosigned,
     required this.events,
+    required this.reports,
   });
 
   factory Incident.fromJson(Map<String, dynamic> j) {
@@ -43,10 +47,13 @@ class Incident {
       events: (j['events'] as List<dynamic>? ?? [])
           .map((e) => IncidentEvent.fromJson(e as Map<String, dynamic>))
           .toList(),
+      reports: (j['reports'] as List<dynamic>? ?? [])
+          .map((r) => PlatformReport.fromJson(r as Map<String, dynamic>))
+          .toList(),
     );
   }
 
-  String get stateLabel => switch (state) {
+  static String labelFor(String state) => switch (state) {
         'detected'           => 'Reported',
         'confirmed'          => 'Confirmed',
         'acknowledged'       => 'Acknowledged',
@@ -55,6 +62,8 @@ class Incident {
         'recurred'           => 'Recurred',
         _                    => state,
       };
+
+  String get stateLabel => labelFor(state);
 }
 
 class PlatformIncident {

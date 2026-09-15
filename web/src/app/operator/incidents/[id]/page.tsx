@@ -8,11 +8,44 @@ interface IncidentEvent {
   from_state: string | null; to_state: string; source: string; note: string | null; at: string;
 }
 interface Comment { id: string; content: string; district: string | null; created_at: string; }
-interface Report { id: string; free_text: string | null; proof_image_url: string | null; district: string | null; created_at: string; }
+interface Report {
+  id: string; free_text: string | null; proof_image_url: string | null; district: string | null; created_at: string;
+  symptom: string | null; language: string | null; ai_summary: string | null;
+  relevance: string | null; contains_pii: boolean | null;
+}
 interface Incident {
   id: string; state: string; opened_at: string; closed_at: string | null;
   confidence: number; recurrence_count: number; platform_name: string; authority_name: string;
   cosignCount: number; events: IncidentEvent[]; comments: Comment[]; reports: Report[];
+}
+
+const SYMPTOM_LABEL: Record<string, string> = {
+  site_down: 'Site down', slow: 'Slow', login_failed: 'Login failed', otp_not_received: 'OTP not received',
+  payment_failed: 'Payment failed', wrong_data: 'Wrong data', feature_broken: 'Feature broken', other: 'Other',
+};
+const LANGUAGE_LABEL: Record<string, string> = {
+  rw: 'Kinyarwanda', en: 'English', fr: 'French', sw: 'Swahili',
+};
+const CHIP = 'text-[11px] font-semibold px-2 py-0.5 rounded-full border';
+
+/** Counts of AI-triaged symptoms across on-topic reports, most common first. */
+function SymptomSummary({ reports }: { reports: Report[] }) {
+  const counts = new Map<string, number>();
+  for (const r of reports) {
+    if (!r.symptom || (r.relevance && r.relevance !== 'on_topic')) continue;
+    counts.set(r.symptom, (counts.get(r.symptom) ?? 0) + 1);
+  }
+  if (counts.size === 0) return null;
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap mb-4">
+      <span className="text-xs font-semibold text-gray-500 mr-1">AI triage:</span>
+      {[...counts.entries()].sort((a, b) => b[1] - a[1]).map(([symptom, n]) => (
+        <span key={symptom} className={`${CHIP} bg-blue-50 text-blue-700 border-blue-100`}>
+          {SYMPTOM_LABEL[symptom] ?? symptom} · {n}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 const STATE_LABEL: Record<string, string> = {
@@ -234,6 +267,7 @@ export default function OperatorIncidentPage({ params }: { params: Promise<{ id:
                 {incident.cosignCount}
               </span>
             </h2>
+            <SymptomSummary reports={incident.reports} />
             <div className="space-y-3">
               {incident.reports.map((r, i) => (
                 <div key={r.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
@@ -243,8 +277,37 @@ export default function OperatorIncidentPage({ params }: { params: Promise<{ id:
                     </span>
                     <span className="text-xs text-gray-400">{timeAgo(r.created_at)}</span>
                   </div>
+                  {(r.symptom || r.relevance) && (
+                    <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                      {r.symptom && (
+                        <span className={`${CHIP} bg-blue-50 text-blue-700 border-blue-100`}>
+                          {SYMPTOM_LABEL[r.symptom] ?? r.symptom}
+                        </span>
+                      )}
+                      {r.language && r.language !== 'en' && r.language !== 'und' && (
+                        <span className={`${CHIP} bg-gray-100 text-gray-600 border-gray-200`}>
+                          {LANGUAGE_LABEL[r.language] ?? r.language.toUpperCase()}
+                        </span>
+                      )}
+                      {r.relevance && r.relevance !== 'on_topic' && (
+                        <span className={`${CHIP} bg-red-50 text-red-700 border-red-100`}>
+                          {r.relevance === 'abusive' ? 'Abusive' : 'Off-topic'} · not counted
+                        </span>
+                      )}
+                      {r.contains_pii && (
+                        <span className={`${CHIP} bg-amber-50 text-amber-700 border-amber-100`}>
+                          Contains personal data
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {r.free_text && (
                     <p className="text-sm text-gray-800 leading-relaxed">{r.free_text}</p>
+                  )}
+                  {r.ai_summary && r.language !== 'en' && (
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      <span className="font-semibold">English (AI):</span> {r.ai_summary}
+                    </p>
                   )}
                   {r.proof_image_url && (
                     <a href={r.proof_image_url} target="_blank" rel="noopener noreferrer"

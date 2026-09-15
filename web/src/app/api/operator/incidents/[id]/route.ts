@@ -57,8 +57,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       WHERE incident_id = ${id}
       ORDER BY created_at ASC LIMIT 100
     `,
-    sql<{ id: string; free_text: string | null; proof_image_url: string | null; district: string | null; created_at: Date }[]>`
-      SELECT id, free_text, proof_image_url, district, created_at
+    sql<{
+      id: string; free_text: string | null; proof_image_url: string | null; district: string | null; created_at: Date;
+      symptom: string | null; language: string | null; ai_summary: string | null;
+      relevance: string | null; contains_pii: boolean | null;
+    }[]>`
+      SELECT id, free_text, proof_image_url, district, created_at,
+             symptom, language, ai_summary, relevance, contains_pii
       FROM reports
       WHERE incident_id = ${id}
         AND (free_text IS NOT NULL OR proof_image_url IS NOT NULL)

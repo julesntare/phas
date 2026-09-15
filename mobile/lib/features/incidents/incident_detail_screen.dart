@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_client.dart';
 import '../../models/incident.dart';
+import '../../models/platform.dart';
 import '../../widgets/loaders.dart';
 import 'incident_provider.dart';
 
@@ -135,6 +136,7 @@ class _IncidentBody extends ConsumerWidget {
                 onCosign: onCosign,
               ),
               const SizedBox(height: 16),
+              _ReportsSection(reports: incident.reports),
               _TimelineSection(events: incident.events),
               const SizedBox(height: 16),
               _CommentsSection(incidentId: incident.id),
@@ -218,9 +220,18 @@ class _StateBanner extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            incident.authorityName,
-            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+          Row(
+            children: [
+              Icon(Icons.account_balance_outlined,
+                  size: 13, color: cs.onSurfaceVariant),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  'Regulator: ${incident.authorityName}',
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 2),
           Row(
@@ -319,9 +330,13 @@ class _CosignCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    count == 0
-                        ? 'Be the first to co-sign'
-                        : '$count ${count == 1 ? 'person' : 'people'} affected',
+                    incident.userHasCosigned
+                        ? (count <= 1
+                            ? 'You\'re the first to report this'
+                            : 'You and ${count - 1} ${count - 1 == 1 ? 'other person' : 'others'} affected')
+                        : count == 0
+                            ? 'Be the first to co-sign'
+                            : '$count ${count == 1 ? 'person' : 'people'} affected',
                     style: const TextStyle(
                         fontWeight: FontWeight.w600, fontSize: 14),
                   ),
@@ -333,7 +348,7 @@ class _CosignCard extends StatelessWidget {
                           Icon(Icons.check_circle,
                               size: 12, color: Color(0xFF16A34A)),
                           SizedBox(width: 4),
-                          Text('You co-signed',
+                          Text('Your report is counted',
                               style: TextStyle(
                                   fontSize: 12,
                                   color: Color(0xFF16A34A),
@@ -371,6 +386,123 @@ class _CosignCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Citizen reports ───────────────────────────────────────────────────────────
+
+class _ReportsSection extends StatelessWidget {
+  final List<PlatformReport> reports;
+  const _ReportsSection({required this.reports});
+
+  @override
+  Widget build(BuildContext context) {
+    if (reports.isEmpty) return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('What people are reporting',
+              style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: cs.onSurface)),
+          const SizedBox(height: 12),
+          ...reports.map((r) => _ReportTile(report: r)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportTile extends StatelessWidget {
+  final PlatformReport report;
+  const _ReportTile({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = report.freeText?.trim() ?? '';
+    final meta = [
+      _fmt(report.createdAt),
+      if (report.district != null) report.district!,
+      if (!report.isMine && !report.isAnonymous && report.reporterName != null)
+        report.reporterName!,
+    ].join(' · ');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(10),
+          border: report.isMine
+              ? Border.all(color: cs.primary.withAlpha(90))
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const _Pill(label: 'Affected', color: Color(0xFFEF4444)),
+                if (report.isMine) ...[
+                  const SizedBox(width: 6),
+                  _Pill(label: 'You', color: cs.primary),
+                ],
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    meta,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  ),
+                ),
+              ],
+            ),
+            if (text.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(text,
+                  style: TextStyle(
+                      fontSize: 13, color: cs.onSurface, height: 1.4)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _fmt(DateTime t) {
+    final diff = DateTime.now().difference(t);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+}
+
+class _Pill extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _Pill({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withAlpha(20),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withAlpha(80)),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 11, color: color, fontWeight: FontWeight.w700)),
+      );
 }
 
 // ── Timeline ──────────────────────────────────────────────────────────────────
@@ -412,8 +544,7 @@ class _TimelineRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final color = incidentStateColor(event.toState);
-    final label = event.toState[0].toUpperCase() +
-        event.toState.substring(1).replaceAll('_', ' ');
+    final label = Incident.labelFor(event.toState);
     final sourceLabel = switch (event.source) {
       'crowd'    => 'Citizen reports',
       'probe'    => 'Automated probe',

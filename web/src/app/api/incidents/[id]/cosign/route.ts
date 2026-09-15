@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import sql from '@/lib/db';
 import { auth } from '@/auth';
 import { verifyAnyToken, isCitizenToken } from '@/lib/auth';
 import { runFusionForPlatform } from '@/lib/fusion';
+import { triageReport } from '@/lib/triage';
 
 export async function POST(
   req: NextRequest,
@@ -83,6 +84,7 @@ export async function POST(
   `;
 
   runFusionForPlatform(incident.platform_id).catch(console.error);
+  if (freeText) after(() => triageReport(report.id));
 
   return NextResponse.json({ id: report.id }, { status: 201 });
 }

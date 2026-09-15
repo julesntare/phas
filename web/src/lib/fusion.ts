@@ -71,6 +71,8 @@ async function getCrowdSignal(platformId: string): Promise<CrowdSignal> {
     FROM reports
     WHERE platform_id = ${platformId}
       AND created_at  > NOW() - ${`${T.openWindowHours} hours`}::interval
+      -- Reports that AI triage flagged as off-topic or abusive are logged but not counted.
+      AND (relevance IS NULL OR relevance = 'on_topic')
   `;
   const aff = Number(affected);
   const total = aff + Number(ok);

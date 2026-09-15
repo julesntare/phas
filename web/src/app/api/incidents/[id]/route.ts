@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
-import { verifyAnyToken } from '@/lib/auth';
+import { verifyAnyToken, isCitizenToken } from '@/lib/auth';
 
 export async function GET(
   req: NextRequest,
@@ -34,26 +34,55 @@ export async function GET(
     return NextResponse.json({ error: 'Incident not found' }, { status: 404 });
   }
 
-  // Cosign count = affected reports linked to this incident.
-  const [{ count: cosignCount }] = await sql<{ count: string }[]>`
-    SELECT COUNT(*) AS count FROM reports
-    WHERE incident_id = ${id}
-  `;
-
-  // Opt-in: check if calling user has already cosigned (ignore auth errors).
-  let userHasCosigned = false;
+  // Optional caller identity: Google citizens are stored as reporter_id, phone users as user_id.
+  let citizenId: string | null = null;
+  let userId: string | null = null;
   const authHeader = req.headers.get('authorization');
-  if (authHeader) {
+  if (authHeader?.startsWith('Bearer ')) {
     try {
-      const user = await verifyAnyToken(authHeader.replace('Bearer ', ''));
-      const [existing] = await sql<{ id: string }[]>`
-        SELECT id FROM reports
-        WHERE incident_id = ${id} AND user_id = ${user.sub}
-        LIMIT 1
-      `;
-      userHasCosigned = !!existing;
-    } catch { /* unauthenticated — treat as not cosigned */ }
+      const payload = await verifyAnyToken(authHeader.slice(7));
+      if (isCitizenToken(payload)) citizenId = payload.sub;
+      else userId = payload.sub;
+    } catch { /* unauthenticated — treat as an anonymous viewer */ }
   }
+
+  const [[stats], reports] = await Promise.all([
+    // People affected = distinct reporters (someone who reports twice counts once),
+    // excluding reports flagged off-topic/abusive by AI triage.
+    sql<{ count: string; mine: boolean }[]>`
+      SELECT
+        COUNT(DISTINCT COALESCE(reporter_id, user_id, id))
+          FILTER (WHERE relevance IS NULL OR relevance = 'on_topic') AS count,
+        COALESCE(BOOL_OR(
+          (${citizenId}::uuid IS NOT NULL AND reporter_id = ${citizenId}::uuid)
+          OR (${userId}::uuid IS NOT NULL AND user_id = ${userId}::uuid)
+        ), false) AS mine
+      FROM reports
+      WHERE incident_id = ${id}
+    `,
+    sql<{
+      id: string;
+      created_at: string;
+      district: string | null;
+      free_text: string | null;
+      is_anonymous: boolean;
+      reporter_name: string | null;
+      is_mine: boolean;
+    }[]>`
+      SELECT r.id, r.created_at, r.district, r.free_text, r.is_anonymous,
+             CASE WHEN r.is_anonymous THEN NULL ELSE ca.name END AS reporter_name,
+             ((${citizenId}::uuid IS NOT NULL AND r.reporter_id = ${citizenId}::uuid)
+               OR (${userId}::uuid IS NOT NULL AND r.user_id = ${userId}::uuid)) AS is_mine
+      FROM reports r
+      LEFT JOIN citizen_accounts ca ON ca.id = r.reporter_id
+      WHERE r.incident_id = ${id}
+        AND (r.relevance IS NULL OR r.relevance = 'on_topic')
+      ORDER BY r.created_at DESC
+      LIMIT 50
+    `,
+  ]);
+  const cosignCount = stats.count;
+  const userHasCosigned = stats.mine;
 
   // Last 20 timeline events.
   const events = await sql<{
@@ -75,5 +104,6 @@ export async function GET(
     cosignCount: Number(cosignCount),
     userHasCosigned,
     events,
+    reports,
   });
 }

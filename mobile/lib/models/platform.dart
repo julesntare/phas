@@ -25,6 +25,7 @@ class PlatformReport {
   final String? freeText;
   final bool isAnonymous;
   final String? reporterName;
+  final bool isMine;
 
   const PlatformReport({
     required this.id,
@@ -34,16 +35,19 @@ class PlatformReport {
     this.freeText,
     required this.isAnonymous,
     this.reporterName,
+    this.isMine = false,
   });
 
   factory PlatformReport.fromJson(Map<String, dynamic> j) => PlatformReport(
         id: j['id'] as String,
-        type: j['type'] as String,
+        // Incident reports are always 'affected' and omit the field.
+        type: j['type'] as String? ?? 'affected',
         createdAt: DateTime.parse(j['created_at'] as String),
         district: j['district'] as String?,
         freeText: j['free_text'] as String?,
         isAnonymous: j['is_anonymous'] as bool,
         reporterName: j['reporter_name'] as String?,
+        isMine: j['is_mine'] as bool? ?? false,
       );
 }
 

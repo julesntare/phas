@@ -84,8 +84,12 @@ export default async function PublicIncidentPage({
       ORDER BY ic.created_at ASC
       LIMIT 100
     `,
+    // People affected = distinct reporters, excluding reports flagged by AI triage.
     sql<{ count: string }[]>`
-      SELECT COUNT(*) AS count FROM reports WHERE incident_id = ${id}
+      SELECT COUNT(DISTINCT COALESCE(reporter_id, user_id, id)) AS count
+      FROM reports
+      WHERE incident_id = ${id}
+        AND (relevance IS NULL OR relevance = 'on_topic')
     `,
   ]);
 
@@ -146,7 +150,7 @@ export default async function PublicIncidentPage({
             )}
             <span className="text-sm text-gray-600 font-medium">{inc.platform_name}</span>
             <span className="text-gray-300">·</span>
-            <span className="text-sm text-gray-400">{inc.authority_name}</span>
+            <span className="text-sm text-gray-400">Regulator: {inc.authority_name}</span>
           </div>
         </div>
 
@@ -168,7 +172,7 @@ export default async function PublicIncidentPage({
               Timeline
             </h2>
             <div className="relative">
-              <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gray-100" />
+              <div className="absolute left-1.75 top-2 bottom-2 w-px bg-gray-100" />
               <div className="space-y-4">
                 {eventRows.map((ev, i) => (
                   <div key={i} className="flex items-start gap-3 pl-1">

@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { createHash } from 'crypto';
 import sql from '@/lib/db';
 import { auth } from '@/auth';
 import { verifyAnyToken, isCitizenToken } from '@/lib/auth';
 import { isRateLimited, isAnonRateLimited } from '@/lib/rate-limit';
 import { runFusionForPlatform } from '@/lib/fusion';
+import { triageReport } from '@/lib/triage';
 
 const VALID_TYPES = new Set(['affected', 'ok']);
 
@@ -108,6 +109,11 @@ export async function POST(req: NextRequest) {
     )
     RETURNING id
   `;
+
+  if (freeText && type === 'affected') {
+    // AI triage runs after the response is sent, so it never slows the citizen down.
+    after(() => triageReport(report.id));
+  }
 
   if (type === 'affected') {
     await runFusionForPlatform(platformId).catch(console.error);
