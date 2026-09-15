@@ -156,6 +156,17 @@ detected → confirmed → acknowledged → partially_resolved → resolved
 
 Fusion also runs immediately (via internal HTTP call) when a new citizen report arrives, so incidents can open within seconds of the first reports.
 
+### AI Report Triage (Claude API)
+
+Citizen reports with free text are triaged by Claude after they are saved ([web/src/lib/triage.ts](web/src/lib/triage.ts)), without delaying the response:
+
+- **Symptom** — `site_down`, `slow`, `login_failed`, `otp_not_received`, `payment_failed`, `wrong_data`, `feature_broken`, `other`
+- **Language** + a neutral **English summary**, so Kinyarwanda/French/Swahili reports are readable by every operator
+- **Relevance** — `off_topic` and `abusive` reports stay visible to operators but are excluded from the fusion crowd ratio
+- **Personal data** — phone numbers and emails are redacted before the text is sent; reports containing personal data are flagged
+
+AI never opens or closes incidents itself. Every decision is logged in `ai_decisions` (model, prompt version, input hash, output). Operators see symptom chips, flags and translations on `/operator/incidents/[id]`. Disabled when `ANTHROPIC_API_KEY` is unset. See [docs/ai-roadmap.md](docs/ai-roadmap.md) for planned AI features.
+
 **Environment overrides:**
 
 | Variable | Default | Purpose |
@@ -215,6 +226,7 @@ PostgreSQL (Neon serverless). Migrations are plain `.sql` files in `db/migration
 | 018 | citizen_notifications | Extend device_tokens and subscriptions to support both phone and Google OAuth citizens |
 | 019 | platform_api_keys | Long-lived API keys for external integrations |
 | 022 | authority_website | Public website URL on authorities |
+| 023 | report_triage | AI triage columns on reports + `ai_decisions` audit table |
 
 ---
 
@@ -241,6 +253,7 @@ PostgreSQL (Neon serverless). Migrations are plain `.sql` files in `db/migration
 | `NEXT_PUBLIC_APP_URL` | No | Public base URL — live: `https://phas-three.vercel.app` |
 | `CRON_SECRET` | No | Secures `/api/cron/*` endpoints on Vercel |
 | `FUSION_OPEN_MIN_REPORTERS` | No | Override fusion threshold (useful for testing) |
+| `ANTHROPIC_API_KEY` | No | Enables AI report triage (skipped when absent) |
 
 ### Worker (`worker/.env`)
 
@@ -317,4 +330,4 @@ Citizen-voiced share text: *"[Platform] is currently [state]. Follow updates on 
 
 ## License
 
-Private — Rwanda ICT Authority / PHAS project.
+MIT — see [LICENSE](LICENSE).
