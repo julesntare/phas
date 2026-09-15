@@ -2,7 +2,7 @@
 
 A multi-tenant accountability layer that detects, verifies, and tracks the technical health of citizen-facing e-platforms in Rwanda — and gives each supervising authority a live view of the platforms under its remit.
 
-**Live:** [https://phas-three.vercel.app](https://phas-three.vercel.app)
+**Live:** [https://phas.julesntare.dev](https://phas.julesntare.dev)
 
 ---
 
@@ -250,7 +250,7 @@ PostgreSQL (Neon serverless). Migrations are plain `.sql` files in `db/migration
 | `EMAIL_FROM` | No | From address (default `PHAS <alerts@phas.rw>`) |
 | `ADMIN_REPORT_EMAIL` | No | Recipient for weekly digest emails |
 | `DEV_EMAIL_OVERRIDE` | No | Fallback recipient in dev |
-| `NEXT_PUBLIC_APP_URL` | No | Public base URL — live: `https://phas-three.vercel.app` |
+| `NEXT_PUBLIC_APP_URL` | No | Public base URL — live: `https://phas.julesntare.dev` |
 | `CRON_SECRET` | No | Secures `/api/cron/*` endpoints on Vercel |
 | `FUSION_OPEN_MIN_REPORTERS` | No | Override fusion threshold (useful for testing) |
 | `ANTHROPIC_API_KEY` | No | Enables AI report triage (skipped when absent) |
@@ -304,17 +304,17 @@ Operators can generate API keys from `/operator/api-keys`. Use the key to call a
 
 ```bash
 # Manually open an incident (e.g. from an SMS gateway)
-curl -X POST https://phas-three.vercel.app/api/operator/incidents \
+curl -X POST https://phas.julesntare.dev/api/operator/incidents \
   -H "X-Api-Key: phas_<key>" \
   -H "Content-Type: application/json" \
   -d '{"platformId":"<uuid>","description":"Scheduled maintenance complete"}'
 
 # List current incidents
-curl https://phas-three.vercel.app/api/operator/incidents \
+curl https://phas.julesntare.dev/api/operator/incidents \
   -H "X-Api-Key: phas_<key>"
 ```
 
-Keys can be revoked at any time from the [API Keys page](https://phas-three.vercel.app/operator/api-keys). The raw key is shown only once at creation.
+Keys can be revoked at any time from the [API Keys page](https://phas.julesntare.dev/operator/api-keys). The raw key is shown only once at creation.
 
 ---
 

@@ -6,7 +6,7 @@ class ApiClient {
   // Update to your Vercel deployment URL for production.
   static const String _baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://phas-three.vercel.app',
+    defaultValue: 'https://phas.julesntare.dev',
   );
 
   final _client = http.Client();
